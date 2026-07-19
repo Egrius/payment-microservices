@@ -1,0 +1,19 @@
+spring:
+  application:
+    name: auth-server
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/api_gateway_auth_server_db
+    username: postgres
+    password: 2Pg8_06Egr
+    driver-class-name: org.postgresql.Driver
+
+    jpa:
+      database-platform: org.hibernate.dialect.PostgreSQLDialect
+      hibernate:
+        ddl-auto: create
+
+      show-sql: false
+      properties:
+        hibernate:
+          format_sql: true
