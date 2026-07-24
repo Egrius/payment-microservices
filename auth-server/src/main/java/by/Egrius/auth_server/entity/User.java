@@ -27,11 +27,19 @@ public class User {
     @Column(name = "external_id", unique = true)
     private String externalId; // ID for OAuth2
 
+    @Column(nullable = false)
+    private String password;
+
     @Column(name = "username")
     private String username;
 
     @Column(name = "email", unique = true)
     private String email;
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "user_roles", joinColumns = @JoinColumn(name = "user_id"))
+    @Column(name = "roles")
+    private List<String> roles;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;

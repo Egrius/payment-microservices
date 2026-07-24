@@ -19,7 +19,7 @@ import java.util.UUID;
 public class AccountController {
 
     private final AccountService accountService;
-
+/*
     @PostMapping("/user/{userPublicId}")
     public ResponseEntity<AccountReadDto> createAccount(
             @PathVariable UUID userPublicId,
@@ -46,4 +46,6 @@ public class AccountController {
         accountService.deleteAccount(publicId);
         return ResponseEntity.noContent().build();
     }
+
+ */
 }

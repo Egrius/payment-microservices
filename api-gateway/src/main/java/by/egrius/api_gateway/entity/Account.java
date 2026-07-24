@@ -29,7 +29,7 @@ public class Account {
     private UUID userId; // Relation with User from auth-server
 
     @Column(name = "balance", precision = 15, scale = 2)
-    private BigDecimal balance = BigDecimal.ZERO;
+    private BigDecimal balance;
 
     @Column(name = "currency", length = 3)
     private String currency; // RUB, USD, EUR

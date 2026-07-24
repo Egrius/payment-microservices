@@ -3,11 +3,9 @@ package by.egrius.api_gateway.service;
 import by.egrius.api_gateway.dto.account.AccountCreateDto;
 import by.egrius.api_gateway.dto.account.AccountReadDto;
 import by.egrius.api_gateway.entity.Account;
-import by.egrius.api_gateway.entity.User;
 import by.egrius.api_gateway.exception.ResourceNotFoundException;
 import by.egrius.api_gateway.mapper.AccountMapper;
 import by.egrius.api_gateway.repository.AccountRepository;
-import by.egrius.api_gateway.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,9 +20,8 @@ import java.util.UUID;
 public class AccountService {
 
     private final AccountRepository accountRepository;
-    private final UserRepository userRepository;
     private final AccountMapper accountMapper;
-
+/*
     @Transactional
     public AccountReadDto createAccount(UUID userPublicId, AccountCreateDto dto) {
         User user = userRepository.findByPublicId(userPublicId)
@@ -65,4 +62,6 @@ public class AccountService {
                 .orElseThrow(() -> new ResourceNotFoundException("Account not found: " + publicId));
         accountRepository.delete(account);
     }
+
+ */
 }

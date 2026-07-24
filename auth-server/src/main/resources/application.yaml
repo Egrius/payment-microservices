@@ -1,6 +1,26 @@
+server:
+  port: 9000
+
+logging:
+  level:
+    org.springframework.security: DEBUG
+    org.springframework.security.oauth2: DEBUG
+    org.springframework.web.client: DEBUG
+    org.springframework.web: DEBUG
+
 spring:
   application:
     name: auth-server
+
+  security:
+    oauth2:
+      authorizationserver:
+        jwt:
+          jwk-source:
+            key-store:
+              path: classpath:keystore/keystore.jks
+              password: changeit
+              alias: auth-server
 
   datasource:
     url: jdbc:postgresql://localhost:5432/api_gateway_auth_server_db
@@ -8,12 +28,11 @@ spring:
     password: 2Pg8_06Egr
     driver-class-name: org.postgresql.Driver
 
-    jpa:
-      database-platform: org.hibernate.dialect.PostgreSQLDialect
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
       hibernate:
-        ddl-auto: create
-
-      show-sql: false
-      properties:
-        hibernate:
-          format_sql: true
+        format_sql: true
