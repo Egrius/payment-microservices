@@ -30,8 +30,11 @@ public class SecurityConfig {
     @Order(1)
     public SecurityFilterChain clientSecurityFilterChain(HttpSecurity http) throws Exception {
         http
-                .securityMatcher("/login", "/login/**", "/oauth2/**", "/custom/**")  // <-- ДОБАВИТЬ /custom/**
-                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
+                .securityMatcher("/login**", "/oauth2/authorization/**", "/custom/oauth2/callback", "/")
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/login", "/oauth2/authorization/**", "/custom/oauth2/callback").permitAll()
+                        .anyRequest().authenticated()
+                )
                 .oauth2Login(oauth2 -> oauth2
                         .loginPage("/login")
                         .defaultSuccessUrl("/", true)
@@ -43,13 +46,9 @@ public class SecurityConfig {
                                 .authorizationRequestRepository(authorizationRequestRepository())
                         )
                 )
-                .csrf(csrf -> csrf
-                        .ignoringRequestMatchers("/custom/oauth2/callback")  // <-- ИСПРАВИТЬ!
-                )
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.ALWAYS)
                 );
-
         return http.build();
     }
 
@@ -58,9 +57,9 @@ public class SecurityConfig {
     public SecurityFilterChain resourceServerSecurityFilterChain(HttpSecurity http) throws Exception {
         http
                 .securityMatcher("/api/**")
+                .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/transfers/**").authenticated()
-                        .anyRequest().permitAll()
+                        .anyRequest().authenticated()
                 )
                 .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt.decoder(jwtDecoder())))
                 .sessionManagement(session ->

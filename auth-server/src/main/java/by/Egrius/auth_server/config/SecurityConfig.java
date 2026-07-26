@@ -45,7 +45,6 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 @Configuration
@@ -65,7 +64,9 @@ public class SecurityConfig {
                                                              AuthorizationServerSettings authorizationServerSettings) throws Exception {
         http
                 .oauth2AuthorizationServer(authServer -> {
-                    http.securityMatcher(authServer.getEndpointsMatcher());
+                    http.securityMatchers(c -> c
+                            .requestMatchers(authServer.getEndpointsMatcher())
+                            .requestMatchers("/login"));
                     authServer
                             .oidc(oidc -> {
                                 oidc.userInfoEndpoint(userInfo -> userInfo.userInfoMapper(
@@ -89,9 +90,13 @@ public class SecurityConfig {
                             .authorizationService(authorizationService)
                             .authorizationServerSettings(authorizationServerSettings);
                 })
-                .authorizeHttpRequests(authorize -> authorize.anyRequest().authenticated())
+                .authorizeHttpRequests(authorize -> authorize
+                        .anyRequest().authenticated())
+                .formLogin(form -> form
+                        .defaultSuccessUrl("/")
+                        .permitAll()
+                )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
-                .formLogin(form -> form.loginPage("/login"))
                 .exceptionHandling(exceptions -> exceptions
                         .defaultAuthenticationEntryPointFor(
                                 new LoginUrlAuthenticationEntryPoint("/login"),
@@ -106,14 +111,12 @@ public class SecurityConfig {
     @Order(2)
     public SecurityFilterChain webSecurityFilterChain(HttpSecurity http) throws Exception {
         http
-                .securityMatcher("/api/**", "/login", "/register")  // <-- ДОБАВИТЬ securityMatcher!
+                .securityMatcher("/api/register")
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/register", "/login", "/oauth2/**").permitAll()  // <-- ДОБАВИТЬ /login
-                        .anyRequest().authenticated()
-                )
-                .formLogin(Customizer.withDefaults());
+                        .anyRequest().permitAll()
+                );
 
         return http.build();
     }
