@@ -148,7 +148,8 @@ public class SecurityConfig {
                     .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
                     .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
                     .authorizationGrantType(AuthorizationGrantType.REFRESH_TOKEN)
-                    .redirectUri("http://api-gateway.local:8080/custom/oauth2/callback")
+                    .redirectUri("http://api-gateway.local:8080/login/oauth2/code/auth-server")
+                    .postLogoutRedirectUri("http://api-gateway.local:8080/login")
                     .scope(OidcScopes.OPENID)
                     .scope(OidcScopes.PROFILE)
                     .build();

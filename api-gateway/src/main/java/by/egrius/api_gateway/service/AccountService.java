@@ -21,7 +21,7 @@ public class AccountService {
 
     private final AccountRepository accountRepository;
     private final AccountMapper accountMapper;
-/*
+    /*
     @Transactional
     public AccountReadDto createAccount(UUID userPublicId, AccountCreateDto dto) {
         User user = userRepository.findByPublicId(userPublicId)
@@ -63,5 +63,6 @@ public class AccountService {
         accountRepository.delete(account);
     }
 
- */
+     */
+
 }

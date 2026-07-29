@@ -39,6 +39,7 @@ dependencies {
 	testCompileOnly 'org.projectlombok:lombok'
 	testAnnotationProcessor 'org.projectlombok:lombok'
 	implementation 'org.mapstruct:mapstruct:1.5.5.Final'
+	implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
 	annotationProcessor 'org.mapstruct:mapstruct-processor:1.5.5.Final'
 
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'

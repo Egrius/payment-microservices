@@ -7,6 +7,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
@@ -31,14 +33,15 @@ public class AccountController {
                 .body(account);
     }
 
+
     @GetMapping("/{publicId}")
     public AccountReadDto getAccount(@PathVariable UUID publicId) {
         return accountService.getAccountByPublicId(publicId);
     }
 
-    @GetMapping("/user/{userPublicId}")
-    public List<AccountReadDto> getAccountsByUser(@PathVariable UUID userPublicId) {
-        return accountService.getAccountsByUser(userPublicId);
+    @GetMapping("/user")
+    public String getAccountsByUser(Authentication authentication) {
+        return authentication.getName();
     }
 
     @DeleteMapping("/{publicId}")
@@ -46,6 +49,6 @@ public class AccountController {
         accountService.deleteAccount(publicId);
         return ResponseEntity.noContent().build();
     }
-
  */
+
 }

@@ -1,21 +1,24 @@
 package by.egrius.api_gateway.config;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.oauth2.client.InMemoryOAuth2AuthorizedClientService;
-import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
+import org.springframework.security.oauth2.client.*;
+import org.springframework.security.oauth2.client.oidc.web.logout.OidcClientInitiatedLogoutSuccessHandler;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
-import org.springframework.security.oauth2.client.web.AuthorizationRequestRepository;
-import org.springframework.security.oauth2.client.web.HttpSessionOAuth2AuthorizationRequestRepository;
-import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequest;
+import org.springframework.security.oauth2.client.web.*;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.logout.LogoutSuccessHandler;
+import org.springframework.security.web.csrf.HttpSessionCsrfTokenRepository;
+import org.springframework.security.web.session.HttpSessionEventPublisher;
 
 // http://api-gateway.local:8080/oauth2/authorization/auth-server
 
@@ -26,29 +29,54 @@ public class SecurityConfig {
     @Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}")
     private String issuerUri;
 
+    @Autowired
+    private ClientRegistrationRepository clientRegistrationRepository;
+
+
+    @Bean
+    public OAuth2AuthorizedClientService oAuth2AuthorizedClientService(
+            ClientRegistrationRepository clientRegistrationRepository) {
+        return new InMemoryOAuth2AuthorizedClientService(clientRegistrationRepository);
+    }
+
+    @Bean
+    public OAuth2AuthorizedClientRepository oAuth2AuthorizedClientRepository(
+            OAuth2AuthorizedClientService service) {
+        return new AuthenticatedPrincipalOAuth2AuthorizedClientRepository(service);
+    }
+
     @Bean
     @Order(1)
     public SecurityFilterChain clientSecurityFilterChain(HttpSecurity http) throws Exception {
         http
-                .securityMatcher("/login**", "/oauth2/authorization/**", "/custom/oauth2/callback", "/")
+                .securityMatcher("/token", "/login**", "/oauth2/authorization/**",
+                        "/login/oauth2/code/**", "/", "/logout", "/logout-page")
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/login", "/oauth2/authorization/**", "/custom/oauth2/callback").permitAll()
+                        .requestMatchers("/login", "/oauth2/authorization/**", "/login/oauth2/code/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .oauth2Login(oauth2 -> oauth2
                         .loginPage("/login")
                         .defaultSuccessUrl("/", true)
-                        .redirectionEndpoint(redirection ->
-                                redirection.baseUri("/custom/oauth2/callback")
-                        )
-                        .authorizationEndpoint(authEndpoint -> authEndpoint
-                                .baseUri("/oauth2/authorization")
-                                .authorizationRequestRepository(authorizationRequestRepository())
-                        )
                 )
+                .oidcLogout(logout -> {
+                    logout.backChannel(Customizer.withDefaults());
+                })
+                .logout(logout -> {
+                    logout
+                            .logoutSuccessHandler(oidcLogoutSuccessHandler())
+                            .logoutUrl("/logout")
+                            .clearAuthentication(true)
+                            .invalidateHttpSession(true)
+                            .deleteCookies("JSESSIONID");
+                })
+                .csrf(csrf -> {
+                    csrf.csrfTokenRepository(new HttpSessionCsrfTokenRepository());
+                })
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.ALWAYS)
                 );
+
         return http.build();
     }
 
@@ -69,15 +97,18 @@ public class SecurityConfig {
         return http.build();
     }
 
-    @Bean
-    public AuthorizationRequestRepository<OAuth2AuthorizationRequest> authorizationRequestRepository() {
-        return new HttpSessionOAuth2AuthorizationRequestRepository();
+    private LogoutSuccessHandler oidcLogoutSuccessHandler() {
+        OidcClientInitiatedLogoutSuccessHandler oidcLogoutSuccessHandler =
+                new OidcClientInitiatedLogoutSuccessHandler(this.clientRegistrationRepository);
+
+        oidcLogoutSuccessHandler.setPostLogoutRedirectUri("http://api-gateway.local:8080/login");
+
+        return oidcLogoutSuccessHandler;
     }
 
     @Bean
-    public OAuth2AuthorizedClientService authorizedClientService(
-            ClientRegistrationRepository clientRegistrationRepository) {
-        return new InMemoryOAuth2AuthorizedClientService(clientRegistrationRepository);
+    public HttpSessionEventPublisher sessionEventPublisher() {
+        return new HttpSessionEventPublisher();
     }
 
     @Bean

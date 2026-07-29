@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Выход</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+        .container { max-width: 400px; margin: 0 auto; }
+        button { padding: 10px 30px; font-size: 16px; cursor: pointer; background: #dc3545; color: white; border: none; border-radius: 4px; }
+        button:hover { background: #c82333; }
+        a { display: inline-block; margin-left: 15px; color: #007bff; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Вы уверены, что хотите выйти?</h1>
+    <p>Вы будете перенаправлены на страницу входа.</p>
+
+    <form th:action="@{/logout}" method="post">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
+        <button type="submit">Да, выйти</button>
+        <a href="/">Отмена</a>
+    </form>
+</div>
+</body>
+</html>

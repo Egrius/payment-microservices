@@ -1,15 +1,7 @@
 logging:
   level:
-    org.springframework.security: TRACE
-    org.springframework.security.oauth2: TRACE
-    org.springframework.security.oauth2.client: TRACE
-    org.springframework.security.oauth2.client.web.OAuth2LoginAuthenticationFilter: TRACE
-    org.springframework.security.oauth2.client.authentication.OAuth2AuthorizationCodeAuthenticationProvider: TRACE
-    org.springframework.security.oauth2.client.web.AuthorizationRequestRepository: TRACE
-    org.springframework.security.web.authentication.SimpleUrlAuthenticationFailureHandler: TRACE
-    org.springframework.security.web.savedrequest: TRACE
-    org.springframework.web.client: DEBUG
-    org.springframework.web: DEBUG
+    org.springframework.security.oauth2.client.web: DEBUG
+    org.springframework.security.web: DEBUG
 
 spring:
   application:
@@ -24,7 +16,8 @@ spring:
             client-id: "api-gateway"
             client-secret: "api-gateway-password"
             authorization-grant-type: authorization_code
-            redirect-uri: "http://api-gateway.local:8080/custom/oauth2/callback"
+            redirect-uri: "http://api-gateway.local:8080/login/oauth2/code/auth-server"
+            # "http://api-gateway.local:8080/custom/oauth2/callback"
             scope: openid, profile
         provider:
           auth-server:
