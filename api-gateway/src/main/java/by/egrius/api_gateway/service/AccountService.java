@@ -21,6 +21,7 @@ public class AccountService {
 
     private final AccountRepository accountRepository;
     private final AccountMapper accountMapper;
+
     /*
     @Transactional
     public AccountReadDto createAccount(UUID userPublicId, AccountCreateDto dto) {
@@ -62,7 +63,5 @@ public class AccountService {
                 .orElseThrow(() -> new ResourceNotFoundException("Account not found: " + publicId));
         accountRepository.delete(account);
     }
-
      */
-
 }

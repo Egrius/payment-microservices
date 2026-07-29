@@ -1,6 +1,5 @@
 package by.Egrius.auth_server.config;
 
-import by.Egrius.auth_server.entity.CustomUserDetails;
 import by.Egrius.auth_server.entity.User;
 import by.Egrius.auth_server.repository.UserRepository;
 import com.nimbusds.jose.JOSEException;
@@ -15,11 +14,9 @@ import org.springframework.core.annotation.Order;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
@@ -220,7 +217,7 @@ public class SecurityConfig {
                 Object principal = authentication.getPrincipal();
 
                 if (principal instanceof org.springframework.security.core.userdetails.User) {
-                    System.out.println("Principal is CustomUserDetails");
+
                     org.springframework.security.core.userdetails.User userDetails = (org.springframework.security.core.userdetails.User) principal;
                     String email = userDetails.getUsername();
                     System.out.println("Email: " + email);

@@ -1,7 +1,9 @@
 package by.egrius.api_gateway.controller;
 
+import by.egrius.api_gateway.annotation.CurrentUser;
 import by.egrius.api_gateway.dto.account.AccountCreateDto;
 import by.egrius.api_gateway.dto.account.AccountReadDto;
+import by.egrius.api_gateway.dto.user.CurrentUserDto;
 import by.egrius.api_gateway.service.AccountService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -9,10 +11,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -38,12 +42,17 @@ public class AccountController {
     public AccountReadDto getAccount(@PathVariable UUID publicId) {
         return accountService.getAccountByPublicId(publicId);
     }
-
+*/
     @GetMapping("/user")
-    public String getAccountsByUser(Authentication authentication) {
-        return authentication.getName();
+    public Map<String, Object> getAccountsByUser(@CurrentUser CurrentUserDto currentUserDto) {
+        return Map.of(
+                "subject", currentUserDto.subject(),
+                "email", currentUserDto.email(),
+                "username", currentUserDto.username(),
+                "public_id", currentUserDto.publicId()
+        );
     }
-
+/*
     @DeleteMapping("/{publicId}")
     public ResponseEntity<Void> deleteAccount(@PathVariable UUID publicId) {
         accountService.deleteAccount(publicId);
