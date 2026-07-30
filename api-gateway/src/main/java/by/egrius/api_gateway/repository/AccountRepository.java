@@ -15,10 +15,17 @@ import java.util.UUID;
 @Repository
 public interface AccountRepository extends JpaRepository<Account, Long> {
 
-    Optional<Account> findByPublicId(UUID publicId);
+    @Query(value = "SELECT * FROM accounts WHERE public_id = :publicAccountId AND user_id = :publicUserId",
+            nativeQuery = true)
+    Optional<Account> findByPublicIdAndUserId(@Param("publicAccountId") UUID publicAccountId,
+                                                         @Param("publicUserId") UUID publicUserId);
+
+    List<Account> findAllAccountsByUserId(UUID publicUserId);
+
+    Optional<Account> findByPublicId(UUID publicAccountId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT a FROM Account a WHERE a.id = :id")
-    Optional<Account> findByIdPessimistic(@Param("id") Long id);
+    Optional<Account> findByPublicIdPessimistic(@Param("id") Long id);
 ;
 }

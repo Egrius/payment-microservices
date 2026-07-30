@@ -1,9 +1,9 @@
 package by.egrius.api_gateway.config;
 
-import by.egrius.api_gateway.service.TransferTask;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.task.TaskExecutor;
+import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.web.client.RestTemplate;
 
@@ -11,6 +11,7 @@ import java.util.concurrent.LinkedTransferQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TransferQueue;
 
+@EnableAsync
 @Configuration
 public class AppConfig {
 
@@ -25,11 +26,6 @@ public class AppConfig {
         threadPoolTaskExecutor.initialize();
 
         return threadPoolTaskExecutor;
-    }
-
-    @Bean
-    public TransferQueue<TransferTask> transferQueue() {
-        return new LinkedTransferQueue<>();
     }
 
     @Bean

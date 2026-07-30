@@ -1,54 +1,35 @@
 package by.egrius.api_gateway.service;
 
-/*
-    Represents a task for asynchronous transfer processing.
-    Requires a thread pool to work in
- */
-
 import by.egrius.api_gateway.entity.Account;
 import by.egrius.api_gateway.entity.Transfer;
 import by.egrius.api_gateway.entity.TransferStatus;
 import by.egrius.api_gateway.repository.AccountRepository;
 import by.egrius.api_gateway.repository.TransferRepository;
-import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.annotation.Scope;
 import org.springframework.scheduling.annotation.Async;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
-
-@Component
-@Scope("prototype")
-@Getter
+@Service
 @Slf4j
-public class TransferTask {
-
-    private final long fromAccountId;
-    private final long toAccountId;
-    private final Long transferId;
+@RequiredArgsConstructor
+public class TransferProcessor {
 
     private final TransferRepository transferRepository;
     private final AccountRepository accountRepository;
 
-    public TransferTask(long fromAccountId, long toAccountId, Long transferId,
-                        TransferRepository transferRepository,
-                        AccountRepository accountRepository,
-                        AccountService accountService) {
-        this.fromAccountId = fromAccountId;
-        this.toAccountId = toAccountId;
-        this.transferId = transferId;
-        this.transferRepository = transferRepository;
-        this.accountRepository = accountRepository;
-    }
-
-
+    @Async("transfer-task-pool")
     @Transactional
-    public void processTransfer() {
+    public void processTransfer(long fromAccountId, long toAccountId, Long transferId) {
         try {
+            log.debug("processTransfer() called, params got: " +
+                            "fromAccountId: {} , toAccountId: {} , transferId: {}",
+                    fromAccountId, toAccountId, transferId);
+
             // Find the transfer
             Transfer transfer = transferRepository.findById(transferId)
                     .orElseThrow(() -> new RuntimeException("Transfer not found"));
@@ -57,9 +38,10 @@ public class TransferTask {
             long firstId = Math.min(fromAccountId, toAccountId);
             long secondId = Math.max(fromAccountId, toAccountId);
 
-            Account first = accountRepository.findByIdPessimistic(firstId)
+            Account first = accountRepository.findByPublicIdPessimistic(firstId)
                     .orElseThrow(() -> new RuntimeException("First account not found"));
-            Account second = accountRepository.findByIdPessimistic(secondId)
+
+            Account second = accountRepository.findByPublicIdPessimistic(secondId)
                     .orElseThrow(() -> new RuntimeException("Second account not found"));
 
             // Identify 'from' and 'to' account
@@ -84,6 +66,9 @@ public class TransferTask {
 
             accountRepository.saveAll(List.of(fromAccount, toAccount));
             transferRepository.save(transfer);
+
+
+            log.debug("Processed transfer: {}", transfer);
 
         } catch (Exception e) {
             // Logging an error without throwing it to keep thread alive

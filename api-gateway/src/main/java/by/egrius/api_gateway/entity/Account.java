@@ -15,7 +15,10 @@ import java.util.UUID;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-@Table(name = "accounts")
+@Table(name = "accounts", uniqueConstraints = {
+        @UniqueConstraint(name = "account_unique_constraint", columnNames = {"user_id", "currency", "name"})
+})
+
 public class Account {
 
     @Id
@@ -47,10 +50,10 @@ public class Account {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    @OneToMany(mappedBy = "fromAccount")
+    @OneToMany(mappedBy = "fromAccount", fetch = FetchType.LAZY)
     private List<Transfer> outgoingTransfers;
 
-    @OneToMany(mappedBy = "toAccount")
+    @OneToMany(mappedBy = "toAccount", fetch = FetchType.LAZY)
     private List<Transfer> incomingTransfers;
 
     @PrePersist

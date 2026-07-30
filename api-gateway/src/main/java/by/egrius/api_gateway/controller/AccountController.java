@@ -7,16 +7,11 @@ import by.egrius.api_gateway.dto.user.CurrentUserDto;
 import by.egrius.api_gateway.service.AccountService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -25,39 +20,34 @@ import java.util.UUID;
 public class AccountController {
 
     private final AccountService accountService;
-/*
-    @PostMapping("/user/{userPublicId}")
+
+    @GetMapping
+    public List<AccountReadDto> getAllUserAccounts(@CurrentUser CurrentUserDto currentUserDto) {
+        return accountService.getAllAccountsByUserId(currentUserDto.publicId());
+    }
+
+    @PostMapping("/create")
     public ResponseEntity<AccountReadDto> createAccount(
-            @PathVariable UUID userPublicId,
+            @CurrentUser CurrentUserDto currentUserDto,
             @Valid @RequestBody AccountCreateDto dto
     ) {
-        AccountReadDto account = accountService.createAccount(userPublicId, dto);
+        AccountReadDto account = accountService.createAccount(currentUserDto.publicId(), dto);
         return ResponseEntity
                 .created(URI.create("/api/accounts/" + account.publicId()))
                 .body(account);
     }
 
 
-    @GetMapping("/{publicId}")
-    public AccountReadDto getAccount(@PathVariable UUID publicId) {
-        return accountService.getAccountByPublicId(publicId);
+    @GetMapping("/{public-account-id}")
+    public AccountReadDto getAccount(@PathVariable("public-account-id") UUID publicAccountId,
+                                     @CurrentUser CurrentUserDto currentUserDto) {
+        return accountService.getAccountByPublicId(publicAccountId, currentUserDto.publicId());
     }
-*/
-    @GetMapping("/user")
-    public Map<String, Object> getAccountsByUser(@CurrentUser CurrentUserDto currentUserDto) {
-        return Map.of(
-                "subject", currentUserDto.subject(),
-                "email", currentUserDto.email(),
-                "username", currentUserDto.username(),
-                "public_id", currentUserDto.publicId()
-        );
-    }
-/*
-    @DeleteMapping("/{publicId}")
-    public ResponseEntity<Void> deleteAccount(@PathVariable UUID publicId) {
-        accountService.deleteAccount(publicId);
+
+    @DeleteMapping("/{public-account-id}")
+    public ResponseEntity<Void> deleteAccount(@PathVariable UUID publicAccountId,
+                                              @CurrentUser CurrentUserDto currentUserDto) {
+        accountService.deleteAccount(publicAccountId, currentUserDto.publicId());
         return ResponseEntity.noContent().build();
     }
- */
-
 }

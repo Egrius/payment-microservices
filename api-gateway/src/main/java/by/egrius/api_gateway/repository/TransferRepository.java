@@ -18,14 +18,21 @@ import java.util.UUID;
 @Repository
 public interface TransferRepository extends JpaRepository<Transfer, Long> {
 
-    // 4. Взять перевод на обработку с блокировкой (чтобы 2 воркера не взяли один)
+    @Query("SELECT t FROM Transfer t " +
+            "JOIN FETCH t.fromAccount fAcc " +
+            "JOIN FETCH t.toAccount tAcc " +
+            "WHERE t.publicId = :publicTransferId AND fAcc.userId = :publicUserId")
+    Optional<Transfer> findByTransferPublicId_and_UserPublicId(@Param("publicTransferId") UUID publicTransferId,
+                                                               @Param("publicUserId") UUID publicUserId);
+
     @Query("SELECT t FROM Transfer t WHERE t.id = :id AND t.status = :status")
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<Transfer> findByIdAndStatusWithLock(@Param("id") Long id, @Param("status") TransferStatus status);
-    // 5. Обновить статус перевода (при завершении)
+
     @Modifying
     @Query("UPDATE Transfer t SET t.status = :status, t.reason = :reason, t.processedAt = :processedAt WHERE t.id = :id")
     int updateStatus(Long id, TransferStatus status, String reason, LocalDateTime processedAt);
+
 
     long countByStatus(TransferStatus status);
 }

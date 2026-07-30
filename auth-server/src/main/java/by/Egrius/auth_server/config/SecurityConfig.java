@@ -30,6 +30,7 @@ import org.springframework.security.oauth2.server.authorization.client.JdbcRegis
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.settings.AuthorizationServerSettings;
+import org.springframework.security.oauth2.server.authorization.settings.TokenSettings;
 import org.springframework.security.oauth2.server.authorization.token.JwtEncodingContext;
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenCustomizer;
 import org.springframework.security.web.SecurityFilterChain;
@@ -41,6 +42,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.security.KeyStore;
 import java.security.KeyStoreException;
+import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
 
@@ -149,6 +151,7 @@ public class SecurityConfig {
                     .postLogoutRedirectUri("http://api-gateway.local:8080/login")
                     .scope(OidcScopes.OPENID)
                     .scope(OidcScopes.PROFILE)
+                    .tokenSettings(tokenSettings())
                     .build();
 
             repository.save(client);
@@ -237,6 +240,14 @@ public class SecurityConfig {
                 System.out.println("Token type is NOT ACCESS_TOKEN: " + context.getTokenType());
             }
         };
+    }
+
+    @Bean
+    public TokenSettings tokenSettings() {
+        return TokenSettings.builder()
+                .accessTokenTimeToLive(Duration.ofHours(1))
+                .refreshTokenTimeToLive(Duration.ofDays(3))
+                .build();
     }
 
     @Bean

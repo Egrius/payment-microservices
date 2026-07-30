@@ -14,7 +14,7 @@ public class TransferAddedEventPublisher {
     private final ApplicationEventPublisher applicationEventPublisher;
 
     public void publishEvent(Object event) {
-        if(event.getClass().isInstance(TransferAddedEvent.class)) {
+        if(event instanceof TransferAddedEvent) {
 
             log.info("Publishing 'TransferAddedEvent' event for a transfer with id {}",
                     ((TransferAddedEvent)event).getTransferId());

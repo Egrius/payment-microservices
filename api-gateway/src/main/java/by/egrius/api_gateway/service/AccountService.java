@@ -22,14 +22,11 @@ public class AccountService {
     private final AccountRepository accountRepository;
     private final AccountMapper accountMapper;
 
-    /*
     @Transactional
     public AccountReadDto createAccount(UUID userPublicId, AccountCreateDto dto) {
-        User user = userRepository.findByPublicId(userPublicId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userPublicId));
 
         Account account = Account.builder()
-                .user(user)
+                .userId(userPublicId)
                 .name(dto.name())
                 .currency(dto.currency())
                 .balance(BigDecimal.ZERO)
@@ -39,29 +36,35 @@ public class AccountService {
         return accountMapper.toReadDto(account);
     }
 
-    
-    public AccountReadDto getAccountByPublicId(UUID publicId) {
-        Account account = accountRepository.findByPublicId(publicId)
-                .orElseThrow(() -> new ResourceNotFoundException("Account not found: " + publicId));
+    //TODO throw 404 from here, not 403 to let some guy know that this account exists
+    public AccountReadDto getAccountByPublicId(UUID publicAccountId, UUID publicUserId) {
+
+        Account account = accountRepository.findByPublicIdAndUserId(publicAccountId, publicUserId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        String.format("Account with id '%s' not found", publicAccountId)
+                ));
+
         return accountMapper.toReadDto(account);
     }
 
     
-    public List<AccountReadDto> getAccountsByUser(UUID userPublicId) {
-        User user = userRepository.findByPublicId(userPublicId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userPublicId));
-
-        return accountRepository.findByUser(user)
+    public List<AccountReadDto> getAllAccountsByUserId(UUID publicUserId) {
+        return accountRepository.findAllAccountsByUserId(publicUserId)
                 .stream()
                 .map(accountMapper::toReadDto)
                 .toList();
     }
 
+    //TODO throw 404 from here, not 403 to let some guy know that this account exists
     @Transactional
-    public void deleteAccount(UUID publicId) {
-        Account account = accountRepository.findByPublicId(publicId)
-                .orElseThrow(() -> new ResourceNotFoundException("Account not found: " + publicId));
+    public void deleteAccount(UUID publicAccountId, UUID publicUserId) {
+
+        Account account = accountRepository.findByPublicIdAndUserId(publicAccountId, publicUserId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        String.format("Account with id '%s' not found", publicAccountId)
+                ));
+
         accountRepository.delete(account);
     }
-     */
+
 }
