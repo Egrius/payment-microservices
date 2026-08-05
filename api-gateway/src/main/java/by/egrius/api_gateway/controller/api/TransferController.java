@@ -1,4 +1,4 @@
-package by.egrius.api_gateway.controller;
+package by.egrius.api_gateway.controller.api;
 
 import by.egrius.api_gateway.annotation.CurrentUser;
 import by.egrius.api_gateway.dto.transfer.TransferCreateDto;

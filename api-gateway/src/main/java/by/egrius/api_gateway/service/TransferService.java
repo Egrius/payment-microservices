@@ -1,6 +1,7 @@
     package by.egrius.api_gateway.service;
 
     import by.egrius.api_gateway.annotation.CurrentUser;
+    import by.egrius.api_gateway.dto.transfer.AdminSenderLeaderboardDto;
     import by.egrius.api_gateway.dto.transfer.TransferCreateDto;
     import by.egrius.api_gateway.dto.transfer.TransferReadDto;
     import by.egrius.api_gateway.entity.Account;
@@ -11,12 +12,17 @@
     import by.egrius.api_gateway.mapper.TransferMapper;
     import by.egrius.api_gateway.repository.AccountRepository;
     import by.egrius.api_gateway.repository.TransferRepository;
+    import by.egrius.api_gateway.repository.projection.TransferProjection;
     import lombok.RequiredArgsConstructor;
+    import org.springframework.data.domain.Page;
+    import org.springframework.data.domain.PageRequest;
     import org.springframework.stereotype.Service;
     import org.springframework.transaction.annotation.Transactional;
     import org.springframework.web.bind.annotation.PathVariable;
 
+    import java.awt.print.Pageable;
     import java.time.LocalDateTime;
+    import java.util.List;
     import java.util.UUID;
 
     @Service
@@ -80,5 +86,25 @@
                     () -> new RuntimeException("Couldn't find a transfer with id %s".formatted(transferId)));
 
             return transferMapper.mapToReadDto(transfer);
+        }
+
+
+        public List<TransferReadDto> get_10_LatestTransfersByUser(UUID userId) {
+            PageRequest pageable = PageRequest.of(0, 10);
+
+            Page<TransferProjection> page = transferRepository.get_10_LatestTransfersByUserId(userId, pageable);
+
+            return page.getContent().stream().map(TransferReadDto::fromProjection).toList();
+        }
+
+        public List<AdminSenderLeaderboardDto> getSenderLeaderboard(Integer leaderboardLimit, Integer daysCount) {
+            if (leaderboardLimit == null || daysCount == null) {
+                throw new RuntimeException(
+                        "Can't create leaderboard with null params: leaderboardLimit {" + leaderboardLimit
+                                + "} , daysCount {" + daysCount + "} ");
+            }
+            return transferRepository.findTopUsersByTransferCount(leaderboardLimit, daysCount).stream()
+                    .map(AdminSenderLeaderboardDto::fromProjection)
+                    .toList();
         }
     }

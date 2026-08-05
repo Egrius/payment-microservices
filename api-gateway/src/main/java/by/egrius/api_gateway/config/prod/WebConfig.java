@@ -1,4 +1,4 @@
-package by.egrius.api_gateway.config;
+package by.egrius.api_gateway.config.prod;
 
 import by.egrius.api_gateway.argument_resolver.CurrentUserArgumentResolver;
 import lombok.RequiredArgsConstructor;

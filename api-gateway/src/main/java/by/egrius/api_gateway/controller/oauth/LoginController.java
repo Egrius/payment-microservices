@@ -1,4 +1,4 @@
-package by.egrius.api_gateway.controller;
+package by.egrius.api_gateway.controller.oauth;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;

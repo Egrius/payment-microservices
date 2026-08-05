@@ -1,4 +1,4 @@
-package by.egrius.api_gateway.controller;
+package by.egrius.api_gateway.controller.oauth;
 
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;

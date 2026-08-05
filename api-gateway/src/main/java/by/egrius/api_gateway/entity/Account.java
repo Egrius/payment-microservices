@@ -50,10 +50,10 @@ public class Account {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    @OneToMany(mappedBy = "fromAccount", fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "fromAccount", fetch = FetchType.LAZY, cascade = CascadeType.REMOVE)
     private List<Transfer> outgoingTransfers;
 
-    @OneToMany(mappedBy = "toAccount", fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "toAccount", fetch = FetchType.LAZY, cascade = CascadeType.REMOVE)
     private List<Transfer> incomingTransfers;
 
     @PrePersist

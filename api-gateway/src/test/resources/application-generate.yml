@@ -1,0 +1,18 @@
+spring:
+  jpa:
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+        generate_statistics: false
+        jdbc:
+          batch_size: 1000
+        order_inserts: true
+
+logging:
+  level:
+    org.hibernate.SQL: OFF
+    org.hibernate.orm.jdbc.bind: OFF
+    org.hibernate.stat: OFF
+    org.springframework.transaction: OFF
+    org.springframework.jdbc: OFF

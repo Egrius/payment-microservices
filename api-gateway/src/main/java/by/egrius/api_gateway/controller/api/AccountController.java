@@ -1,4 +1,4 @@
-package by.egrius.api_gateway.controller;
+package by.egrius.api_gateway.controller.api;
 
 import by.egrius.api_gateway.annotation.CurrentUser;
 import by.egrius.api_gateway.dto.account.AccountCreateDto;
@@ -27,7 +27,7 @@ public class AccountController {
     }
 
     @PostMapping("/create")
-    public ResponseEntity<AccountReadDto> createAccount(
+        public ResponseEntity<AccountReadDto> createAccount(
             @CurrentUser CurrentUserDto currentUserDto,
             @Valid @RequestBody AccountCreateDto dto
     ) {
@@ -45,7 +45,7 @@ public class AccountController {
     }
 
     @DeleteMapping("/{public-account-id}")
-    public ResponseEntity<Void> deleteAccount(@PathVariable UUID publicAccountId,
+    public ResponseEntity<Void> deleteAccount(@PathVariable("public-account-id") UUID publicAccountId,
                                               @CurrentUser CurrentUserDto currentUserDto) {
         accountService.deleteAccount(publicAccountId, currentUserDto.publicId());
         return ResponseEntity.noContent().build();

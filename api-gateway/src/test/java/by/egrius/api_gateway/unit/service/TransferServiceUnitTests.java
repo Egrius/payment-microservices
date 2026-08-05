@@ -97,6 +97,8 @@ class TransferServiceUnitTests {
                 toAccountPublicId,
                 BigDecimal.valueOf(100),
                 TransferStatus.PENDING,
+                null,
+                null,
                 null
         );
 

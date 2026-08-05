@@ -8,9 +8,11 @@ import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
 import com.nimbusds.jose.jwk.source.JWKSource;
 import com.nimbusds.jose.proc.SecurityContext;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
+import org.springframework.core.env.Environment;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -34,6 +36,7 @@ import org.springframework.security.oauth2.server.authorization.settings.TokenSe
 import org.springframework.security.oauth2.server.authorization.token.JwtEncodingContext;
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenCustomizer;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.AuthenticationFailureHandler;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
 import org.springframework.security.web.util.matcher.MediaTypeRequestMatcher;
 import org.springframework.web.cors.CorsConfiguration;
@@ -43,6 +46,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 
@@ -56,11 +60,22 @@ public class SecurityConfig {
     }
 
     @Bean
+    public AuthenticationFailureHandler authenticationFailureHandler() {
+        return (request, response, exception) -> {
+            System.out.println("=== LOGIN FAILED ===");
+            System.out.println("Username: " + request.getParameter("username"));
+            System.out.println("Exception: " + exception.getMessage());
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Login failed");
+        };
+    }
+
+    @Bean
     @Order(1)
     public SecurityFilterChain authServerSecurityFilterChain(HttpSecurity http,
                                                              RegisteredClientRepository clientRepository,
                                                              OAuth2AuthorizationService authorizationService,
-                                                             AuthorizationServerSettings authorizationServerSettings) throws Exception {
+                                                             AuthorizationServerSettings authorizationServerSettings,
+                                                             Environment environment) throws Exception {
         http
                 .oauth2AuthorizationServer(authServer -> {
                     http.securityMatchers(c -> c
@@ -93,6 +108,7 @@ public class SecurityConfig {
                         .anyRequest().authenticated())
                 .formLogin(form -> form
                         .defaultSuccessUrl("/")
+                        .failureHandler(authenticationFailureHandler())
                         .permitAll()
                 )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
@@ -101,7 +117,13 @@ public class SecurityConfig {
                                 new LoginUrlAuthenticationEntryPoint("/login"),
                                 new MediaTypeRequestMatcher(MediaType.TEXT_HTML)
                         )
-                );
+                )
+                .csrf(csrf -> {
+                    if(Arrays.stream(environment.getActiveProfiles()).anyMatch("test"::equals)) {
+                        csrf.ignoringRequestMatchers("/**");
+                        System.out.println("✅ CSRF DISABLED FOR TEST PROFILE");
+                    }
+                });
 
         return http.build();
     }
@@ -231,7 +253,8 @@ public class SecurityConfig {
                     context.getClaims()
                             .claim("username", user.getUsername())
                             .claim("email", email)
-                            .claim("public_id", user.getPublicId().toString());
+                            .claim("public_id", user.getPublicId().toString())
+                            .claim("roles", user.getRoles()); // Updated to check for an admin
 
                 } else {
                     System.out.println("Principal is NOT org.springframework.security.core.userdetails.User. It is: " + principal.getClass().getName());

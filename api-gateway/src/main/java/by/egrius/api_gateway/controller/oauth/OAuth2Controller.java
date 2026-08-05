@@ -1,4 +1,4 @@
-package by.egrius.api_gateway.controller;
+package by.egrius.api_gateway.controller.oauth;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;

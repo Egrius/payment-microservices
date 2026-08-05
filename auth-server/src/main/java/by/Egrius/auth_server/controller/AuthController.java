@@ -31,6 +31,8 @@ public class AuthController {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body("User registered successfully");
     }
+
+
 }
 
 record RegisterRequest(String username, String password, String email) {}

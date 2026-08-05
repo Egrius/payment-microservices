@@ -3,12 +3,15 @@ package by.egrius.api_gateway.service;
 import by.egrius.api_gateway.entity.Account;
 import by.egrius.api_gateway.entity.Transfer;
 import by.egrius.api_gateway.entity.TransferStatus;
+import by.egrius.api_gateway.event.TransferProcessedEvent;
+import by.egrius.api_gateway.event.publisher.TransferProcessedEventPublisher;
 import by.egrius.api_gateway.repository.AccountRepository;
 import by.egrius.api_gateway.repository.TransferRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -21,9 +24,10 @@ public class TransferProcessor {
 
     private final TransferRepository transferRepository;
     private final AccountRepository accountRepository;
+    private final TransferProcessedEventPublisher transferProcessedEventPublisher;
 
     @Async("transfer-task-pool")
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public void processTransfer(long fromAccountId, long toAccountId, Long transferId) {
         try {
             log.debug("processTransfer() called, params got: " +
@@ -53,6 +57,14 @@ public class TransferProcessor {
                 transfer.setStatus(TransferStatus.FAILED);
                 transfer.setReason("Insufficient funds");
                 transferRepository.save(transfer);
+
+                transferProcessedEventPublisher.publishEvent(
+                        new TransferProcessedEvent(
+                                this, fromAccountId, toAccountId,
+                                transfer.getId(), transfer.getAmount(), transfer.getStatus()
+                        )
+                );
+
                 return;
             }
 
@@ -67,6 +79,12 @@ public class TransferProcessor {
             accountRepository.saveAll(List.of(fromAccount, toAccount));
             transferRepository.save(transfer);
 
+            transferProcessedEventPublisher.publishEvent(
+                    new TransferProcessedEvent(
+                            this, fromAccountId, toAccountId,
+                            transfer.getId(), transfer.getAmount(), transfer.getStatus()
+                    )
+            );
 
             log.debug("Processed transfer: {}", transfer);
 
@@ -80,10 +98,19 @@ public class TransferProcessor {
                     transfer.setStatus(TransferStatus.FAILED);
                     transfer.setReason("Internal error: " + e.getMessage());
                     transferRepository.save(transfer);
+
+                    transferProcessedEventPublisher.publishEvent(
+                            new TransferProcessedEvent(
+                                    this, fromAccountId, toAccountId,
+                                    transfer.getId(), transfer.getAmount(), transfer.getStatus()
+                            )
+                    );
                 }
             } catch (Exception saveEx) {
                 log.error("Failed to update transfer status to FAILED", saveEx);
             }
         }
     }
+
+
 }
