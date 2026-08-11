@@ -24,7 +24,7 @@ public class TransferAddedEventListener {
         log.debug("Got event: {}", event);
 
         log.debug("Calling 'TransferProcessor.processTransfer()'" +
-                " with params fromAccountId: {} , toAccountId: {} , publicId: {}",
+                " with params fromAccountPublicId: {} , toAccountPublicId: {} , publicId: {}",
                 event.getFromAccountId(), event.getToAccountId(), event.getTransferId());
 
         transferProcessor.processTransfer(event.getFromAccountId(), event.getToAccountId(), event.getTransferId());

@@ -7,6 +7,8 @@ import by.egrius.payment_service.dto.transfer.TransferReadDto;
 import by.egrius.payment_service.entity.Account;
 import by.egrius.payment_service.entity.TransferStatus;
 import by.egrius.payment_service.context.ServiceIntegrationTestContext;
+import by.egrius.payment_service.exception.payment_service.SameAccountTransferException;
+import by.egrius.payment_service.exception.payment_service.TransferNotFoundException;
 import by.egrius.payment_service.integration.config.BaseIntegrationTest;
 import by.egrius.payment_service.repository.AccountRepository;
 import by.egrius.payment_service.service.AccountService;
@@ -121,8 +123,7 @@ class TransferServiceIntegrationTests extends BaseIntegrationTest {
         );
 
         assertThatThrownBy(() -> transferService.createTransfer(createDto, userPublicId))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Can't create transfer for the same account");
+                .isInstanceOf(SameAccountTransferException.class);
     }
 
     @Test
@@ -173,7 +174,6 @@ class TransferServiceIntegrationTests extends BaseIntegrationTest {
     void shouldThrowExceptionWhenTransferNotFound() {
         UUID randomId = UUID.randomUUID();
         assertThatThrownBy(() -> transferService.getTransferStatus(randomId, userPublicId))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining("Couldn't find a transfer with id");
+                .isInstanceOf(TransferNotFoundException.class);
     }
 }

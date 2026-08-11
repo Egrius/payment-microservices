@@ -22,7 +22,7 @@ public class TransferServiceOptimizationTests extends BaseOptimizingTest {
 
     @Test
     void get10Latest_Test() {
-        transferService.get_10_LatestTransfersByUser(UUID.fromString("ae4edaa1-3b0d-451d-9f1e-2cecdbff4573"));
+        transferService.get_10_LatestTransfersByPublicUserId(UUID.fromString("ae4edaa1-3b0d-451d-9f1e-2cecdbff4573"));
     }
 
     @Test
