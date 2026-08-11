@@ -46,6 +46,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
@@ -105,6 +106,7 @@ public class SecurityConfig {
                             .authorizationServerSettings(authorizationServerSettings);
                 })
                 .authorizeHttpRequests(authorize -> authorize
+                        .requestMatchers("/login").permitAll()
                         .anyRequest().authenticated())
                 .formLogin(form -> form
                         .defaultSuccessUrl("/")
@@ -169,8 +171,8 @@ public class SecurityConfig {
                     .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
                     .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
                     .authorizationGrantType(AuthorizationGrantType.REFRESH_TOKEN)
-                    .redirectUri("http://api-gateway.local:8080/login/oauth2/code/auth-server")
-                    .postLogoutRedirectUri("http://api-gateway.local:8080/login")
+                    .redirectUri("http://payment-service.local:8080/login/oauth2/code/auth-server")
+                    .postLogoutRedirectUri("http://payment-service.local:8080/login")
                     .scope(OidcScopes.OPENID)
                     .scope(OidcScopes.PROFILE)
                     .tokenSettings(tokenSettings())
@@ -254,7 +256,7 @@ public class SecurityConfig {
                             .claim("username", user.getUsername())
                             .claim("email", email)
                             .claim("public_id", user.getPublicId().toString())
-                            .claim("roles", user.getRoles()); // Updated to check for an admin
+                            .claim("roles",  new ArrayList<>(user.getRoles())); // Updated to check for an admin
 
                 } else {
                     System.out.println("Principal is NOT org.springframework.security.core.userdetails.User. It is: " + principal.getClass().getName());

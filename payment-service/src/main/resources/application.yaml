@@ -1,0 +1,51 @@
+logging:
+  level:
+    org.springframework.security.oauth2.client.oidc: DEBUG
+    org.springframework.security.oauth2.client.userinfo: DEBUG
+    org.springframework.security: DEBUG
+    org.springframework.security.oauth2: DEBUG
+    org.springframework.web.client: DEBUG
+
+    by.egrius.api_gateway: DEBUG
+    org.springframework.cache: DEBUG
+    org.springframework.data.redis: DEBUG
+
+spring:
+  application:
+    name: api-gateway
+
+  security:
+    oauth2:
+      client:
+        registration:
+          auth-server:
+            provider: auth-server
+            client-id: "api-gateway"
+            client-secret: "api-gateway-password"
+            authorization-grant-type: authorization_code
+            redirect-uri: "http://payment-service.local:8080/login/oauth2/code/auth-server"
+            scope: openid, profile
+        provider:
+          auth-server:
+            user-name-attribute: email
+            issuer-uri: http://auth-server.local:9000
+
+      resourceserver:
+        jwt:
+          issuer-uri: http://auth-server.local:9000
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/api_gateway_db
+    username: postgres
+    password: 2Pg8_06Egr
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: update
+
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true

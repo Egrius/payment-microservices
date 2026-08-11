@@ -1,4 +1,4 @@
 rootProject.name = 'payment-microservices'
 
-include 'api-gateway'
+include 'payment-service'
 include 'auth-server'
