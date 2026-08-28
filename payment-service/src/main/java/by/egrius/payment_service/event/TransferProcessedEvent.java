@@ -1,25 +1,46 @@
 package by.egrius.payment_service.event;
 
+import by.egrius.payment_service.dto.transfer.TransferReadDto;
 import by.egrius.payment_service.entity.TransferStatus;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import org.springframework.context.ApplicationEvent;
 
 import java.math.BigDecimal;
+import java.util.UUID;
 
 @Getter
-public class TransferProcessedEvent extends ApplicationEvent {
-    private final BigDecimal amount;
-    private final long fromAccountId;
-    private final long toAccountId;
-    private final long transferId;
-    private final TransferStatus status;
+@NoArgsConstructor
+public class TransferProcessedEvent {
 
-    public TransferProcessedEvent(Object source, long fromAccountId, long toAccountId, long transferId, BigDecimal amount, TransferStatus status) {
-        super(source);
-        this.fromAccountId = fromAccountId;
-        this.toAccountId = toAccountId;
-        this.transferId = transferId;
+    private UUID userPublicTd;
+    private BigDecimal amount;
+    private UUID fromAccountPublicId;
+    private UUID toAccountPublicId;
+    private UUID transferPublicId;
+    private TransferStatus status;
+
+    public TransferProcessedEvent(UUID userPublicTd,
+                                  UUID fromAccountPublicId, UUID toAccountPublicId,
+                                  UUID transferPublicId, BigDecimal amount,
+                                  TransferStatus status
+    ) {
+
+        this.userPublicTd = userPublicTd;
+        this.fromAccountPublicId = fromAccountPublicId;
+        this.toAccountPublicId = toAccountPublicId;
+        this.transferPublicId = transferPublicId;
         this.amount = amount;
         this.status = status;
+    }
+
+    public TransferProcessedEvent(UUID userPublicTd, TransferReadDto transferReadDto) {
+
+        this.userPublicTd = userPublicTd;
+        this.toAccountPublicId = transferReadDto.toAccountPublicId();
+        this.fromAccountPublicId = transferReadDto.fromAccountPublicId();
+        this.transferPublicId = transferReadDto.publicId();
+        this.amount = transferReadDto.amount();
+        this.status = transferReadDto.status();
     }
 }

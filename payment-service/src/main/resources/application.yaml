@@ -14,14 +14,21 @@ spring:
   application:
     name: api-gateway
 
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+    virtual-host: /
+
   security:
     oauth2:
       client:
         registration:
           auth-server:
             provider: auth-server
-            client-id: "api-gateway"
-            client-secret: "api-gateway-password"
+            client-id: "payment-service"
+            client-secret: "payment-service-password"
             authorization-grant-type: authorization_code
             redirect-uri: "http://payment-service.local:8080/login/oauth2/code/auth-server"
             scope: openid, profile

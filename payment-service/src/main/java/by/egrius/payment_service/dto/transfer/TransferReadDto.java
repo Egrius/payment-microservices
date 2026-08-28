@@ -2,6 +2,7 @@ package by.egrius.payment_service.dto.transfer;
 
 import by.egrius.payment_service.entity.TransferStatus;
 import by.egrius.payment_service.repository.projection.TransferProjection;
+import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -9,8 +10,8 @@ import java.util.UUID;
 
 public record TransferReadDto(
         UUID publicId,
-        UUID fromAccountId,
-        UUID toAccountId,
+        UUID fromAccountPublicId,
+        UUID toAccountPublicId,
         BigDecimal amount,
         TransferStatus status,
         LocalDateTime createdAt,

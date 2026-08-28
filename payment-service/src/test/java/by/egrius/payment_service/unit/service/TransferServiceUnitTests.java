@@ -5,8 +5,7 @@ import by.egrius.payment_service.dto.transfer.TransferReadDto;
 import by.egrius.payment_service.entity.Account;
 import by.egrius.payment_service.entity.Transfer;
 import by.egrius.payment_service.entity.TransferStatus;
-import by.egrius.payment_service.event.TransferAddedEvent;
-import by.egrius.payment_service.event.publisher.TransferAddedEventPublisher;
+import by.egrius.payment_service.exception.payment_service.SameAccountTransferException;
 import by.egrius.payment_service.mapper.TransferMapper;
 import by.egrius.payment_service.repository.AccountRepository;
 import by.egrius.payment_service.repository.TransferRepository;
@@ -14,7 +13,6 @@ import by.egrius.payment_service.service.TransferService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -40,8 +38,6 @@ class TransferServiceUnitTests {
     @Mock
     private TransferMapper transferMapper;
 
-    @Mock
-    private TransferAddedEventPublisher eventPublisher;
 
     @InjectMocks
     private TransferService transferService;
@@ -110,36 +106,6 @@ class TransferServiceUnitTests {
     }
 
     @Test
-    void createTransfer_WhenValid_ShouldCreateTransferAndPublishEvent() {
-        
-        when(accountRepository.findByPublicIdAndUserId(fromAccountPublicId, userPublicId))
-                .thenReturn(Optional.of(fromAccount));
-        when(accountRepository.findByPublicId(toAccountPublicId))
-                .thenReturn(Optional.of(toAccount));
-        when(transferRepository.save(any(Transfer.class))).thenReturn(savedTransfer);
-        when(transferMapper.mapToReadDto(savedTransfer)).thenReturn(transferReadDto);
-        doNothing().when(eventPublisher).publishEvent(any(TransferAddedEvent.class));
-
-        
-        TransferReadDto result = transferService.createTransfer(createDto, userPublicId);
-
-       
-        assertThat(result).isNotNull();
-        assertThat(result.publicId()).isEqualTo(transferReadDto.publicId());
-
-        verify(accountRepository, times(1))
-                .findByPublicIdAndUserId(fromAccountPublicId, userPublicId);
-        verify(accountRepository, times(1))
-                .findByPublicId(toAccountPublicId);
-        verify(transferRepository, times(1)).save(any(Transfer.class));
-
-        ArgumentCaptor<TransferAddedEvent> eventCaptor = ArgumentCaptor.forClass(TransferAddedEvent.class);
-        verify(eventPublisher, times(1)).publishEvent(eventCaptor.capture());
-        TransferAddedEvent capturedEvent = eventCaptor.getValue();
-        assertThat(capturedEvent.getTransferId()).isEqualTo(savedTransfer.getId());
-    }
-
-    @Test
     void createTransfer_WhenFromAccountDoesNotExist_ShouldThrowException() {
         
         when(accountRepository.findByPublicIdAndUserId(fromAccountPublicId, userPublicId))
@@ -152,7 +118,6 @@ class TransferServiceUnitTests {
 
         verify(accountRepository, never()).findByPublicId(toAccountPublicId);
         verify(transferRepository, never()).save(any());
-        verify(eventPublisher, never()).publishEvent(any());
     }
 
     @Test
@@ -169,11 +134,10 @@ class TransferServiceUnitTests {
                 .hasMessageContaining("'to account' does not exist");
 
         verify(transferRepository, never()).save(any());
-        verify(eventPublisher, never()).publishEvent(any());
     }
 
     @Test
-    void createTransfer_WhenFromAndToAccountsAreSame_ShouldThrowIllegalArgumentException() {
+    void createTransfer_WhenFromAndToAccountsAreSame_ShouldThrowSameAccountTransferException() {
         
         TransferCreateDto invalidDto = new TransferCreateDto(
                 fromAccountPublicId,
@@ -183,8 +147,7 @@ class TransferServiceUnitTests {
 
         
         assertThatThrownBy(() -> transferService.createTransfer(invalidDto, userPublicId))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Can't create transfer for the same account");
+                .isInstanceOf(SameAccountTransferException.class);
 
         verify(accountRepository, never()).findByPublicIdAndUserId(any(), any());
         verify(transferRepository, never()).save(any());

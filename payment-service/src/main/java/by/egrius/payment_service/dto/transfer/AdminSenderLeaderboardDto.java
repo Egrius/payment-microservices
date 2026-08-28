@@ -5,14 +5,14 @@ import by.egrius.payment_service.repository.projection.AdminSenderLeaderboardPro
 import java.util.UUID;
 
 public record AdminSenderLeaderboardDto(
-        UUID userId,
-        UUID accountId,
+        UUID userPublicId,
+        UUID accountPublicId,
         Long transfersCount
 ) {
     public static AdminSenderLeaderboardDto fromProjection(AdminSenderLeaderboardProjection p) {
         return new AdminSenderLeaderboardDto(
-                p.getUserId(),
-                p.getAccountId(),
+                p.getUserPublicId(),
+                p.getAccountPublicId(),
                 p.getTransfersCount()
         );
     }

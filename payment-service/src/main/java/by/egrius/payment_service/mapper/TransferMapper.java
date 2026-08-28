@@ -10,7 +10,8 @@ import org.mapstruct.MappingConstants;
 public interface TransferMapper {
 
     @Mapping(target = "publicId", source = "publicId")
-    @Mapping(target = "fromAccountId", source = "fromAccount.publicId")
-    @Mapping(target = "toAccountId", source = "toAccount.publicId")
+    @Mapping(target = "fromAccountPublicId", source = "fromAccount.publicId")
+    @Mapping(target = "toAccountPublicId", source = "toAccount.publicId")
     TransferReadDto mapToReadDto(Transfer transfer);
+
 }

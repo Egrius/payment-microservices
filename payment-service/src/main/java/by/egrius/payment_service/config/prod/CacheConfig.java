@@ -36,10 +36,11 @@ public class CacheConfig {
     private ObjectMapper objectMapper() {
         PolymorphicTypeValidator ptv = BasicPolymorphicTypeValidator.builder()
                 .allowIfSubType("by.egrius.api_gateway.dto.")
+                .allowIfSubType("by.egrius.payment_service.dto.")
                 .allowIfSubType("java.util.")
-                .allowIfSubType("java.math.")      // Добавьте это для BigDecimal
-                .allowIfSubType("java.lang.")      // Добавьте это для String, Integer и т.д.
-                .allowIfSubType("java.time.")      // Добавьте это для LocalDateTime и т.д.
+                .allowIfSubType("java.math.")
+                .allowIfSubType("java.lang.")
+                .allowIfSubType("java.time.")
                 .build();
 
         return JsonMapper.builder()
@@ -78,7 +79,7 @@ public class CacheConfig {
                                 jsonSerializer
                         )
                 )
-                .disableCachingNullValues();;
+                .disableCachingNullValues();
 
         RedisCacheConfiguration accountsCache = RedisCacheConfiguration.defaultCacheConfig()
                 .entryTtl(Duration.ofMinutes(10))

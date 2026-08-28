@@ -40,6 +40,13 @@ public interface TransferRepository extends JpaRepository<Transfer, Long> {
 
     long countByStatus(TransferStatus status);
 
+    @Modifying
+    @Query("UPDATE Transfer t SET t.status = :status, t.processedAt = :processedAt WHERE t.publicId = :publicId AND t.status = 'PENDING'")
+    int updateTransferStatus(@Param("publicId") UUID publicId,
+                             @Param("status") TransferStatus status,
+                             @Param("processedAt") LocalDateTime processedAt);
+
+    // TODO count query may be optimized
     @Query(
             value = """
         SELECT
@@ -55,7 +62,7 @@ public interface TransferRepository extends JpaRepository<Transfer, Long> {
         JOIN accounts from_acc ON t.from_account_id = from_acc.id
         JOIN accounts to_acc ON t.to_account_id = to_acc.id
         JOIN accounts a ON t.from_account_id = a.id OR t.to_account_id = a.id
-        WHERE a.user_id = :userId
+        WHERE a.user_id = :userPublicId
         ORDER BY t.created_at DESC
     """,
             countQuery = """
@@ -64,19 +71,19 @@ public interface TransferRepository extends JpaRepository<Transfer, Long> {
         JOIN accounts from_acc ON t.from_account_id = from_acc.id
         JOIN accounts to_acc ON t.to_account_id = to_acc.id
         JOIN accounts a ON t.from_account_id = a.id OR t.to_account_id = a.id
-        WHERE a.user_id = :userId
+        WHERE a.user_id = :userPublicId
     """,
             nativeQuery = true
     )
-    Page<TransferProjection> get_10_LatestTransfersByUserId(
-            @Param("userId") UUID userId,
+    Page<TransferProjection> findByUserIdOrderByCreatedAtDesc(
+            @Param("userPublicId") UUID userId,
             Pageable pageable
     );
 
 
     @Query(value = """
             SELECT 
-                a.user_id AS userId, 
+                a.user_id AS userPublicId, 
                 a.public_id AS accountId, 
                 COUNT(*) as transfersCount
             FROM transfers t

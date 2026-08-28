@@ -2,13 +2,13 @@ package by.egrius.payment_service.integration.config;
 
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.cache.CacheManager;
+import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Profile;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
 import org.springframework.data.redis.cache.RedisCacheManager;
 import org.springframework.data.redis.cache.RedisCacheWriter;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
-import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.serializer.JacksonJsonRedisSerializer;
@@ -28,6 +28,7 @@ import java.util.Map;
 
 @Profile("test")
 @TestConfiguration
+@EnableCaching
 public class TestCacheConfig {
 
     private static final GenericContainer<?> redisContainer =
@@ -51,10 +52,11 @@ public class TestCacheConfig {
     private ObjectMapper objectMapper() {
         PolymorphicTypeValidator ptv = BasicPolymorphicTypeValidator.builder()
                 .allowIfSubType("by.egrius.api_gateway.dto.")
+                .allowIfSubType("by.egrius.payment_service.dto.")
                 .allowIfSubType("java.util.")
-                .allowIfSubType("java.math.")      // Добавьте это для BigDecimal
-                .allowIfSubType("java.lang.")      // Добавьте это для String, Integer и т.д.
-                .allowIfSubType("java.time.")      // Добавьте это для LocalDateTime и т.д.
+                .allowIfSubType("java.math.")
+                .allowIfSubType("java.lang.")
+                .allowIfSubType("java.time.")
                 .build();
 
         return JsonMapper.builder()
@@ -93,10 +95,20 @@ public class TestCacheConfig {
                                 jsonSerializer
                         )
                 )
-                .disableCachingNullValues();;
+                .serializeKeysWith(  // ← ДОБАВЛЯЕМ ЭТО!
+                        RedisSerializationContext.SerializationPair.fromSerializer(
+                                new StringRedisSerializer()
+                        )
+                )
+                .disableCachingNullValues();
 
         RedisCacheConfiguration accountsCache = RedisCacheConfiguration.defaultCacheConfig()
                 .entryTtl(Duration.ofMinutes(10))
+                .serializeKeysWith(  // ← ДОБАВЛЯЕМ ЭТО!
+                        RedisSerializationContext.SerializationPair.fromSerializer(
+                                new StringRedisSerializer()
+                        )
+                )
                 .serializeValuesWith(
                         RedisSerializationContext.SerializationPair.fromSerializer(
                                 jsonSerializer
@@ -106,6 +118,11 @@ public class TestCacheConfig {
 
         RedisCacheConfiguration transfersCache = RedisCacheConfiguration.defaultCacheConfig()
                 .entryTtl(Duration.ofMinutes(5))
+                .serializeKeysWith(  // ← ДОБАВЛЯЕМ ЭТО!
+                        RedisSerializationContext.SerializationPair.fromSerializer(
+                                new StringRedisSerializer()
+                        )
+                )
                 .serializeValuesWith(
                         RedisSerializationContext.SerializationPair.fromSerializer(
                                 jsonSerializer

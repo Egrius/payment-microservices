@@ -164,10 +164,10 @@ public class SecurityConfig {
     public RegisteredClientRepository clientRepository(JdbcTemplate jdbcTemplate) {
         JdbcRegisteredClientRepository repository = new JdbcRegisteredClientRepository(jdbcTemplate);
 
-        if(repository.findByClientId("api-gateway") == null) {
+        if(repository.findByClientId("payment-service") == null) {
             RegisteredClient client = RegisteredClient.withId(UUID.randomUUID().toString())
-                    .clientId("api-gateway")
-                    .clientSecret("{noop}api-gateway-password")
+                    .clientId("payment-service")
+                    .clientSecret("{noop}payment-service-password")
                     .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
                     .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
                     .authorizationGrantType(AuthorizationGrantType.REFRESH_TOKEN)

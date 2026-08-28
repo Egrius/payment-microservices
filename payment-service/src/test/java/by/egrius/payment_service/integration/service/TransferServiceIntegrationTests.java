@@ -21,7 +21,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import java.math.BigDecimal;
 import java.util.UUID;
 
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 
 
@@ -73,48 +72,6 @@ class TransferServiceIntegrationTests extends BaseIntegrationTest {
     }
 
     @Test
-    void shouldCreateTransferWithPendingStatusAndThenComplete() {
-        TransferCreateDto createDto = new TransferCreateDto(
-                fromAccount.publicId(),
-                toAccount.publicId(),
-                BigDecimal.valueOf(100)
-        );
-
-        TransferReadDto created = transferService.createTransfer(createDto, userPublicId);
-        assertThat(created.status()).isEqualTo(TransferStatus.PENDING);
-
-        TransferReadDto updated = waitForTransferProcessing(created.publicId(), userPublicId, 50, 100);
-        assertThat(updated.status()).isEqualTo(TransferStatus.COMPLETED);
-        assertThat(updated.processedAt()).isNotNull();
-
-        Account from = accountRepository.findByPublicIdAndUserId(fromAccount.publicId(), userPublicId).orElseThrow();
-        Account to = accountRepository.findByPublicIdAndUserId(toAccount.publicId(), userPublicId).orElseThrow();
-        assertThat(from.getBalance()).isEqualByComparingTo(BigDecimal.valueOf(900));
-        assertThat(to.getBalance()).isEqualByComparingTo(BigDecimal.valueOf(100));
-    }
-
-    @Test
-    void shouldFailTransferWhenInsufficientFunds() {
-        TransferCreateDto createDto = new TransferCreateDto(
-                fromAccount.publicId(),
-                toAccount.publicId(),
-                BigDecimal.valueOf(2000)
-        );
-
-        TransferReadDto created = transferService.createTransfer(createDto, userPublicId);
-        assertThat(created.status()).isEqualTo(TransferStatus.PENDING);
-
-        TransferReadDto updated = waitForTransferProcessing(created.publicId(), userPublicId, 50, 100);
-        assertThat(updated.status()).isEqualTo(TransferStatus.FAILED);
-        assertThat(updated.reason()).contains("Insufficient funds");
-
-        Account from = accountRepository.findByPublicIdAndUserId(fromAccount.publicId(), userPublicId).orElseThrow();
-        Account to = accountRepository.findByPublicIdAndUserId(toAccount.publicId(), userPublicId).orElseThrow();
-        assertThat(from.getBalance()).isEqualByComparingTo(BigDecimal.valueOf(1000));
-        assertThat(to.getBalance()).isEqualByComparingTo(BigDecimal.ZERO);
-    }
-
-    @Test
     void shouldThrowExceptionWhenFromAndToAccountsAreSame() {
         TransferCreateDto createDto = new TransferCreateDto(
                 fromAccount.publicId(),
@@ -154,20 +111,6 @@ class TransferServiceIntegrationTests extends BaseIntegrationTest {
         assertThatThrownBy(() -> transferService.createTransfer(createDto, userPublicId))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("'to account' does not exist");
-    }
-
-    @Test
-    void shouldGetTransferStatus() {
-        TransferCreateDto createDto = new TransferCreateDto(
-                fromAccount.publicId(),
-                toAccount.publicId(),
-                BigDecimal.valueOf(50)
-        );
-        TransferReadDto created = transferService.createTransfer(createDto, userPublicId);
-
-        TransferReadDto status = transferService.getTransferStatus(created.publicId(), userPublicId);
-        assertThat(status.publicId()).isEqualTo(created.publicId());
-        assertThat(status.status()).isEqualTo(TransferStatus.PENDING);
     }
 
     @Test

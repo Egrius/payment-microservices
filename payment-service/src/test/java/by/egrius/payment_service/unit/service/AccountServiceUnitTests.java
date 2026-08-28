@@ -7,6 +7,7 @@ import by.egrius.payment_service.exception.ResourceNotFoundException;
 import by.egrius.payment_service.mapper.AccountMapper;
 import by.egrius.payment_service.repository.AccountRepository;
 import by.egrius.payment_service.service.AccountService;
+import by.egrius.payment_service.service.CacheService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -32,6 +33,9 @@ class AccountServiceUnitTests {
 
     @Mock
     private AccountMapper accountMapper;
+
+    @Mock
+    private CacheService cacheService;
 
     @InjectMocks
     private AccountService accountService;
@@ -124,10 +128,8 @@ class AccountServiceUnitTests {
         when(accountRepository.findAllAccountsByUserId(userPublicId)).thenReturn(accounts);
         when(accountMapper.toReadDto(account)).thenReturn(accountReadDto);
 
-        
         List<AccountReadDto> result = accountService.getAllAccountsByUserId(userPublicId);
 
-        
         assertThat(result).hasSize(1);
         assertThat(result.get(0).publicId()).isEqualTo(accountPublicId);
         verify(accountRepository, times(1)).findAllAccountsByUserId(userPublicId);

@@ -27,6 +27,7 @@ public class AccountService {
 
     private final AccountRepository accountRepository;
     private final AccountMapper accountMapper;
+    private final CacheService cacheService;
 
     @Autowired
     private CacheManager cacheManager;
@@ -65,13 +66,7 @@ public class AccountService {
                 .toList();
 
         if (!results.isEmpty()) {
-            Cache cache = cacheManager.getCache("accounts");
-            if(cache != null) {
-                for(AccountReadDto acc : results) {
-                    String key = publicUserId + "_" + acc.publicId();
-                    cache.put(key, acc);
-                }
-            }
+           cacheService.putAccountsCollection("accounts", publicUserId.toString(), results);
         }
         return results;
     }

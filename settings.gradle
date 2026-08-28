@@ -2,3 +2,5 @@ rootProject.name = 'payment-microservices'
 
 include 'payment-service'
 include 'auth-server'
+include 'notification_service'
+
