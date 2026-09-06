@@ -1,3 +1,11 @@
+server:
+  port: ${PAYMENT_SERVICE_PORT:8080}
+
+auth:
+  server:
+    host: ${AUTH_SERVER_HOST:auth-server.local}
+    port: ${AUTH_SERVER_PORT:9000}
+
 logging:
   level:
     org.springframework.security.oauth2.client.oidc: DEBUG
@@ -15,10 +23,10 @@ spring:
     name: api-gateway
 
   rabbitmq:
-    host: localhost
-    port: 5672
-    username: guest
-    password: guest
+    host: ${RABBIT_HOST:localhost}
+    port: ${RABBIT_PORT:5672}
+    username: ${RABBIT_USER:guest}
+    password: ${RABBIT_PASSWORD:guest}
     virtual-host: /
 
   security:
@@ -30,21 +38,21 @@ spring:
             client-id: "payment-service"
             client-secret: "payment-service-password"
             authorization-grant-type: authorization_code
-            redirect-uri: "http://payment-service.local:8080/login/oauth2/code/auth-server"
+            redirect-uri: "http://${PAYMENT_SERVICE_HOST:payment-service.local}:${PAYMENT_SERVICE_PORT:8080}/login/oauth2/code/auth-server"
             scope: openid, profile
         provider:
           auth-server:
             user-name-attribute: email
-            issuer-uri: http://auth-server.local:9000
+            issuer-uri: http://${AUTH_SERVER_HOST:auth-server.local}:${AUTH_SERVER_PORT:9000}
 
       resourceserver:
         jwt:
-          issuer-uri: http://auth-server.local:9000
+          issuer-uri: http://${AUTH_SERVER_HOST:auth-server.local}:${AUTH_SERVER_PORT:9000}
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/api_gateway_db
-    username: postgres
-    password: 2Pg8_06Egr
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:api_gateway_db}
+    username: ${DB_USER:postgres}
+    password: ${DB_PASSWORD:2Pg8_06Egr}
     driver-class-name: org.postgresql.Driver
 
   jpa:

@@ -9,14 +9,17 @@ import by.egrius.payment_service.entity.TransferStatus;
 import by.egrius.payment_service.event.TransferAddedEvent;
 import by.egrius.payment_service.integration.config.BaseIntegrationTest;
 import by.egrius.payment_service.integration.config.TestCacheConfig;
+import by.egrius.payment_service.integration.config.TestRabbitMQConfig;
 import by.egrius.payment_service.repository.AccountRepository;
 import by.egrius.payment_service.repository.TransferRepository;
 import by.egrius.payment_service.service.CacheService;
 import by.egrius.payment_service.service.TransferProcessor;
 import by.egrius.payment_service.service.TransferService;
 import lombok.SneakyThrows;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 import org.mockito.ArgumentCaptor;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -44,11 +47,12 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 @ActiveProfiles("test")
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @SpringBootTest(
         classes = ServiceIntegrationTestContext.class,
         webEnvironment = SpringBootTest.WebEnvironment.NONE
 )
-@Import(TestCacheConfig.class)
+@Import(value = {TestCacheConfig.class})
 public class TransferServiceCacheIntegrationTests extends BaseIntegrationTest {
     @Autowired
     private TransferService transferService;
@@ -84,8 +88,9 @@ public class TransferServiceCacheIntegrationTests extends BaseIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        // Очищаем кэш перед каждым тестом
+
         cacheManager.getCache("transfers").clear();
+        redisTemplate.keys("transfers::*").forEach(redisTemplate::delete);
 
         fromUserId = UUID.randomUUID();
         toUserId = UUID.randomUUID();
@@ -118,7 +123,12 @@ public class TransferServiceCacheIntegrationTests extends BaseIntegrationTest {
         );
     }
 
-    @SneakyThrows
+    @AfterEach
+    void tearDown() {
+        cacheManager.getCache("transfers").clear();
+        redisTemplate.keys("transfers::*").forEach(redisTemplate::delete);
+    }
+
     @Test
     void getTransferStatusShouldPutTransferInCache() {
         var cacheKey = fromUserId + "_" + transfer.getPublicId();

@@ -1,7 +1,5 @@
 package by.egrius.payment_service.integration.config;
 
-import org.springframework.cache.CacheManager;
-import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;

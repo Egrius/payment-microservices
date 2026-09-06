@@ -95,7 +95,7 @@ public class TestCacheConfig {
                                 jsonSerializer
                         )
                 )
-                .serializeKeysWith(  // ← ДОБАВЛЯЕМ ЭТО!
+                .serializeKeysWith(
                         RedisSerializationContext.SerializationPair.fromSerializer(
                                 new StringRedisSerializer()
                         )
@@ -104,7 +104,7 @@ public class TestCacheConfig {
 
         RedisCacheConfiguration accountsCache = RedisCacheConfiguration.defaultCacheConfig()
                 .entryTtl(Duration.ofMinutes(10))
-                .serializeKeysWith(  // ← ДОБАВЛЯЕМ ЭТО!
+                .serializeKeysWith(
                         RedisSerializationContext.SerializationPair.fromSerializer(
                                 new StringRedisSerializer()
                         )
@@ -118,7 +118,7 @@ public class TestCacheConfig {
 
         RedisCacheConfiguration transfersCache = RedisCacheConfiguration.defaultCacheConfig()
                 .entryTtl(Duration.ofMinutes(5))
-                .serializeKeysWith(  // ← ДОБАВЛЯЕМ ЭТО!
+                .serializeKeysWith(
                         RedisSerializationContext.SerializationPair.fromSerializer(
                                 new StringRedisSerializer()
                         )

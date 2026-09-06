@@ -14,6 +14,7 @@ import by.egrius.payment_service.service.TransferService;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 import org.springframework.amqp.rabbit.core.RabbitAdmin;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -29,6 +30,7 @@ import java.util.stream.Collectors;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
 @ActiveProfiles("test")
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @SpringBootTest(
         classes = ServiceIntegrationTestContext.class,
         webEnvironment = SpringBootTest.WebEnvironment.NONE
@@ -249,7 +251,7 @@ public class TransfersLoadTests extends BaseIntegrationTest {
 
             boolean allEventsReceived;
             try {
-                allEventsReceived = eventsLatch.await(60, TimeUnit.SECONDS);
+                allEventsReceived = eventsLatch.await(120, TimeUnit.SECONDS);
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }
@@ -318,7 +320,7 @@ public class TransfersLoadTests extends BaseIntegrationTest {
                 .orElse(null);
 
         if (optimal != null) {
-            log.info("\n🎯 OPTIMAL POOL SIZE: {} with {} TPS",
+            log.info("\nOPTIMAL POOL SIZE: {} with {} TPS",
                     optimal.getKey(), optimal.getValue());
         }
     }

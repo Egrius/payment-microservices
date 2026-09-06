@@ -9,6 +9,7 @@ import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
 import com.nimbusds.jose.jwk.source.JWKSource;
 import com.nimbusds.jose.proc.SecurityContext;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
@@ -104,16 +105,17 @@ public class SecurityConfig {
                             .registeredClientRepository(clientRepository)
                             .authorizationService(authorizationService)
                             .authorizationServerSettings(authorizationServerSettings);
+
                 })
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers("/login").permitAll()
                         .anyRequest().authenticated())
                 .formLogin(form -> form
-                        .defaultSuccessUrl("/")
+                        //.defaultSuccessUrl("/")
                         .failureHandler(authenticationFailureHandler())
                         .permitAll()
                 )
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.ALWAYS))
                 .exceptionHandling(exceptions -> exceptions
                         .defaultAuthenticationEntryPointFor(
                                 new LoginUrlAuthenticationEntryPoint("/login"),
@@ -161,18 +163,29 @@ public class SecurityConfig {
         Register api-gateway if it's not provided.
      */
     @Bean
-    public RegisteredClientRepository clientRepository(JdbcTemplate jdbcTemplate) {
+    public RegisteredClientRepository clientRepository(JdbcTemplate jdbcTemplate,
+                                                       @Value("${payment.service.host:payment-service.local}") String paymentServiceHost,
+                                                       @Value("${payment.service.port:8080}") String paymentServicePort) {
         JdbcRegisteredClientRepository repository = new JdbcRegisteredClientRepository(jdbcTemplate);
 
         if(repository.findByClientId("payment-service") == null) {
+            String redirectUri = String.format(
+                    "http://%s:%s/login/oauth2/code/auth-server",
+                    paymentServiceHost, paymentServicePort
+            );
+            String logoutUri = String.format(
+                    "http://%s:%s/login",
+                    paymentServiceHost, paymentServicePort
+            );
+
             RegisteredClient client = RegisteredClient.withId(UUID.randomUUID().toString())
                     .clientId("payment-service")
                     .clientSecret("{noop}payment-service-password")
                     .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
                     .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
                     .authorizationGrantType(AuthorizationGrantType.REFRESH_TOKEN)
-                    .redirectUri("http://payment-service.local:8080/login/oauth2/code/auth-server")
-                    .postLogoutRedirectUri("http://payment-service.local:8080/login")
+                    .redirectUri(redirectUri)
+                    .postLogoutRedirectUri(logoutUri)
                     .scope(OidcScopes.OPENID)
                     .scope(OidcScopes.PROFILE)
                     .tokenSettings(tokenSettings())
@@ -198,9 +211,9 @@ public class SecurityConfig {
         Define end-points for oauth2
      */
     @Bean
-    public AuthorizationServerSettings authorizationServerSettings() {
+    public AuthorizationServerSettings authorizationServerSettings( @Value("${AUTH_SERVER_ISSUER:http://auth-server.local:9000}") String issuerUri) {
         return AuthorizationServerSettings.builder()
-                .issuer("http://auth-server.local:9000")
+                .issuer(issuerUri)
                 .build();
     }
 

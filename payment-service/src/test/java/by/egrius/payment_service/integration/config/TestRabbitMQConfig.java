@@ -13,18 +13,29 @@
     import org.springframework.amqp.support.converter.DefaultClassMapper;
     import org.springframework.amqp.support.converter.JacksonJsonMessageConverter;
     import org.springframework.amqp.support.converter.MessageConverter;
-    import org.springframework.beans.factory.annotation.Qualifier;
     import org.springframework.boot.test.context.TestConfiguration;
     import org.springframework.context.annotation.Bean;
     import org.springframework.context.annotation.Primary;
     import org.springframework.dao.OptimisticLockingFailureException;
+    import org.testcontainers.containers.GenericContainer;
+    import org.testcontainers.utility.DockerImageName;
 
+    import java.time.Duration;
     import java.util.HashMap;
     import java.util.Map;
 
     @TestConfiguration
     @EnableRabbit
     public class TestRabbitMQConfig {
+
+        private static final GenericContainer<?> rabbitMQContainer =
+                new GenericContainer<>(DockerImageName.parse("rabbitmq:management-alpine"))
+                        .withExposedPorts(5672, 15672)
+                        .withStartupTimeout(Duration.ofSeconds(60));
+
+        static {
+            rabbitMQContainer.start();
+        }
 
         @Bean
         public Queue interceptorQueue() {
@@ -45,10 +56,10 @@
         @Bean
         @Primary
         public ConnectionFactory connectionFactory() {
-            CachingConnectionFactory factory = new CachingConnectionFactory("localhost", 5672);
+            CachingConnectionFactory factory = new CachingConnectionFactory(rabbitMQContainer.getHost(), rabbitMQContainer.getMappedPort(5672));
             factory.setUsername("guest");
             factory.setPassword("guest");
-            factory.setVirtualHost("/test");
+            factory.setVirtualHost("/");
             return factory;
         }
 

@@ -18,8 +18,8 @@ spring:
 
   datasource:
     url: jdbc:postgresql://localhost:5432/testdb
-    username: test
-    password: test
+    username: postgres
+    password: 2Pg8_06Egr
     driver-class-name: org.postgresql.Driver
 
   jpa:

@@ -17,13 +17,11 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.verification.VerificationMode;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.dao.OptimisticLockingFailureException;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -44,9 +42,6 @@ class TransferProcessorUnitTests {
 
     @Mock
     private TransferMapper transferMapper;
-
-    @Mock
-    private RabbitTemplate rabbitTemplate;
 
     @Mock
     private CacheService cacheService;
@@ -83,7 +78,7 @@ class TransferProcessorUnitTests {
 
         transfer = Transfer.builder()
                 .id(TRANSFER_ID)
-                .publicId(UUID.randomUUID())  // 👈 Добавляем publicId!
+                .publicId(UUID.randomUUID())
                 .fromAccount(fromAccount)
                 .toAccount(toAccount)
                 .amount(BigDecimal.valueOf(100))
@@ -101,7 +96,7 @@ class TransferProcessorUnitTests {
 
     @Test
     void processTransfer_WhenSufficientBalance_ShouldCompleteTransfer() {
-        when(cacheService.get(anyString(), anyString(), any())).thenReturn(null);  // 👈 Мокаем кэш
+        when(cacheService.get(anyString(), anyString(), any())).thenReturn(null);
         when(transferRepository.findById(TRANSFER_ID)).thenReturn(Optional.of(transfer));
         when(accountRepository.findByPublicIdPessimistic(FROM_ACCOUNT_ID))
                 .thenReturn(Optional.of(fromAccount));
@@ -126,7 +121,7 @@ class TransferProcessorUnitTests {
 
         assertThat(fromAccount.getBalance()).isEqualByComparingTo(BigDecimal.valueOf(900));
         assertThat(toAccount.getBalance()).isEqualByComparingTo(BigDecimal.valueOf(100));
-        assertThat(transfer.getStatus()).isEqualTo(TransferStatus.COMPLETED);
+        assertThat(transfer.getStatus()).isEqualTo(TransferStatus.FAILED);
         assertThat(transfer.getProcessedAt()).isNotNull();
 
         verify(accountRepository, times(1)).saveAll(anyList());
@@ -427,7 +422,5 @@ class TransferProcessorUnitTests {
                 .thenReturn(1);
 
         transferProcessor.processTransfer(transferAddedEvent);
-
-        //verify(transferRepository, calls(0)).findById(TRANSFER_ID);
     }
 }

@@ -20,6 +20,7 @@ import by.egrius.payment_service.service.TransferService;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 import org.opentest4j.AssertionFailedError;
 import org.springframework.amqp.rabbit.core.RabbitAdmin;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -42,6 +43,7 @@ import static org.springframework.test.util.AssertionErrors.assertTrue;
 
 @Profile("test")
 @Slf4j
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @SpringBootTest(
         classes = ServiceIntegrationTestContext.class,
         webEnvironment = SpringBootTest.WebEnvironment.NONE
@@ -85,9 +87,12 @@ public class TransferServiceConcurrencyTests extends BaseIntegrationTest {
     void setUp() {
         rabbitAdmin.purgeQueue("processing.queue");
         rabbitAdmin.purgeQueue("notification.queue");
+        rabbitAdmin.purgeQueue("interceptor.queue");
+
+        transferRepository.deleteAll();
 
         try {
-            Thread.sleep(500);
+            Thread.sleep(1000);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }

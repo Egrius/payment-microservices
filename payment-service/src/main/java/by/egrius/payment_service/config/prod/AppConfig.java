@@ -35,15 +35,4 @@ public class AppConfig {
         return new RestTemplate();
     }
 
-    @Bean
-    public MessageConverter jacksonJsonMessageConverter() {
-        return new JacksonJsonMessageConverter();
-    }
-
-    @Bean
-    public RabbitTemplate rabbitTemplate(ConnectionFactory connectionFactory) {
-        RabbitTemplate template = new RabbitTemplate(connectionFactory);
-        template.setMessageConverter(jacksonJsonMessageConverter());
-        return template;
-    }
 }

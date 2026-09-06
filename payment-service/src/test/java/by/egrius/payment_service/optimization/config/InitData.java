@@ -38,14 +38,14 @@ public class InitData extends BaseOptimizingTest {
 
     private List<Account> allAccounts = new ArrayList<>();
 
-    @Test
+//    @Test
     void cleanUp() {
 
         transferRepository.deleteAll();
         accountRepository.deleteAll();
     }
 
-    @Test
+//    @Test
     void init() {
         long startTime = System.currentTimeMillis();
         log.info("🚀 Starting data generation...");

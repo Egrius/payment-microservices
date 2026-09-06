@@ -34,7 +34,7 @@ public class TransferController {
 
     // Add caching
     @GetMapping("/{transfer-public-id}")
-    public TransferReadDto getTransferStatus(@PathVariable UUID transferId,
+    public TransferReadDto getTransferStatus(@PathVariable("transfer-public-id") UUID transferId,
                                              @CurrentUser CurrentUserDto currentUserDto) {
 
         return transferService.getTransferStatus(transferId, currentUserDto.publicId());
