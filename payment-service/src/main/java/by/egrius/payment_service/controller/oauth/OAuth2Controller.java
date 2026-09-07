@@ -54,7 +54,8 @@ public class OAuth2Controller {
                 "access_token", accessToken.getTokenValue(),
                 "token_type", accessToken.getTokenType().getValue(),
                 "expires_at", accessToken.getExpiresAt() != null ? accessToken.getExpiresAt().toString() : "N/A",
-                "client_registration_id", authorizedClient.getClientRegistration().getRegistrationId()
+                "client_registration_id", authorizedClient.getClientRegistration().getRegistrationId(),
+                "refresh_token", authorizedClient.getRefreshToken()
         );
     }
 }

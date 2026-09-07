@@ -12,6 +12,8 @@ services:
     environment:
       - PAYMENT_SERVICE_HOST=payment-service
       - PAYMENT_SERVICE_PORT=8080
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
       - DB_HOST=payment_db
       - DB_PORT=5432
       - DB_NAME=api_gateway_db
@@ -94,7 +96,7 @@ services:
       - POSTGRES_DB=api_gateway_auth_server_db
     image: postgres:16-alpine
     ports:
-      - "5432:5432"
+      - "5433:5432"
     networks:
       - app-network
 

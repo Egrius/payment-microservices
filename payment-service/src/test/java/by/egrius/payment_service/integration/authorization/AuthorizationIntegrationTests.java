@@ -1,5 +1,7 @@
 package by.egrius.payment_service.integration.authorization;
 
+import by.egrius.payment_service.dto.RegisterRequest;
+import by.egrius.payment_service.dto.account.AccountCreateDto;
 import org.apache.hc.client5.http.classic.HttpClient;
 import org.apache.hc.client5.http.config.RequestConfig;
 import org.apache.hc.client5.http.cookie.BasicCookieStore;
@@ -17,11 +19,15 @@ import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import java.net.URI;
+import java.sql.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.AssertionsForClassTypes.fail;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /*
     docker-compose --env-file src/test/resources/testcontainers/.env -f src/test/resources/testcontainers/docker-compose-test.yaml up
@@ -36,7 +42,6 @@ docker exec -it testcontainers-auth_db-1 psql -U postgres -d api_gateway_auth_se
 docker exec -it testcontainers-auth_db-1 psql -U postgres -d api_gateway_auth_server_db -f /tmp/oauth2-authorization-schema.sql
 docker exec -it testcontainers-auth_db-1 psql -U postgres -d api_gateway_auth_server_db -f /tmp/oauth2-authorization-consent-schema.sql
  */
-
 
 public class AuthorizationIntegrationTests {
 
@@ -177,7 +182,7 @@ public class AuthorizationIntegrationTests {
     }
 
     @Test
-    void shouldReturn401WhenNoAuthenticationForTheResource() {
+    void shouldReturn401_WhenNoTokenProvided() {
 
         RestTemplate restTemplate = new RestTemplate();
         try {
@@ -185,6 +190,233 @@ public class AuthorizationIntegrationTests {
         } catch (HttpClientErrorException.Unauthorized e) {
             assertEquals(HttpStatus.UNAUTHORIZED, e.getStatusCode());
             System.out.println("Got 401 as expected");
+        }
+    }
+
+    @Test
+    void shouldReturn401_WhenTokenIsInvalid() {
+        String invalidToken = "some_random_string_that_is_not_a_jwt";
+
+
+        RestTemplate restTemplate = new RestTemplate();
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(invalidToken);
+        HttpEntity<Void> request = new HttpEntity<>(headers);
+
+        assertThrows(HttpClientErrorException.Unauthorized.class, () -> {
+            restTemplate.exchange(
+                    BASE_URL + "/api/accounts",
+                    HttpMethod.GET,
+                    request,
+                    String.class
+            );
+        });
+    }
+
+    @Test
+    void shouldReturn404_WhenAccessingOtherUserResource() throws Exception {
+        RegisterRequest registrationUserA = new RegisterRequest("User_A", "1234_user_A", "TestUser_A@gmail.com");
+        RegisterRequest registrationUserB = new RegisterRequest("User_B", "1234_user_B", "TestUser_B@gmail.com");
+
+        // 1. Явно загружаем драйвер
+        try {
+            Class.forName("org.postgresql.Driver");
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException("PostgreSQL Driver not found", e);
+        }
+
+        String jdbcUrlAuthServer = "jdbc:postgresql://localhost:5433/api_gateway_auth_server_db";
+        String jdbcUrlPaymentService = "jdbc:postgresql://localhost:5435/api_gateway_db";
+        String user = "postgres";
+        String password = "2Pg8_06Egr";
+
+        clearUsersFromAuthServerDB(jdbcUrlAuthServer,user, password);
+        clearAccountsFromPaymentServiceDB(jdbcUrlPaymentService, user, password);
+
+        // 3. Регистрируем пользователей через API
+        RestTemplate restTemplate = new RestTemplate();
+        ResponseEntity<String> userARegistrationResponse = restTemplate.postForEntity(
+                BASE_URL + "/register",
+                registrationUserA,
+                String.class
+        );
+        ResponseEntity<String> userBRegistrationResponse = restTemplate.postForEntity(
+                BASE_URL + "/register",
+                registrationUserB,
+                String.class
+        );
+
+        assertThat(userARegistrationResponse.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(userBRegistrationResponse.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+
+        // 4. Читаем пользователей из БД
+        try (Connection connection = DriverManager.getConnection(jdbcUrlAuthServer, user, password);
+             Statement statement = connection.createStatement();
+             ResultSet resultSet = statement.executeQuery("SELECT public_id, username, email FROM users"))
+        {
+
+            List<Map<String, String>> users = new ArrayList<>();
+            while (resultSet.next()) {
+                Map<String, String> userMap = new HashMap<>();
+                userMap.put("public_id", resultSet.getString("public_id"));
+                userMap.put("username", resultSet.getString("username"));
+                userMap.put("email", resultSet.getString("email"));
+                users.add(userMap);
+            }
+
+            System.out.println("=== Users in DB ===");
+            for (Map<String, String> u : users) {
+                System.out.println(u);
+            }
+
+            assertThat(users).hasSize(2);
+        }
+
+        String tokenA = getAccessTokenForUser(registrationUserA.email(), "1234_user_A");
+        System.out.println("Token A: " + tokenA);
+
+        String tokenB = getAccessTokenForUser(registrationUserB.email(), "1234_user_B");
+        System.out.println("Token B: " + tokenB);
+
+        String accountAId = createAccount(tokenA, "Account_A", "USD");
+        String accountBId = createAccount(tokenB, "Account_B", "USD");
+        System.out.println("Account A: " + accountAId);
+        System.out.println("Account B: " + accountBId);
+
+        clearUsersFromAuthServerDB(jdbcUrlAuthServer,user, password);
+        clearAccountsFromPaymentServiceDB(jdbcUrlPaymentService, user, password);
+
+        // Getting User_B's Account from User_A
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(tokenA);
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        HttpEntity<Void> request = new HttpEntity<>(headers);
+
+        HttpClientErrorException.NotFound exception =
+                assertThrows(HttpClientErrorException.NotFound.class, () -> {
+                    restTemplate.exchange(
+                            BASE_URL + "/api/accounts/" + accountBId,
+                            HttpMethod.GET,
+                            request,
+                            String.class
+                    );
+                });
+
+        assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
+
+    }
+
+    private String getAccessTokenForUser(String email, String password) throws Exception {
+
+        CookieStore paymentCookieStore = new BasicCookieStore();
+        HttpClient paymentClient = HttpClientBuilder.create()
+                .setDefaultRequestConfig(RequestConfig.custom().setRedirectsEnabled(false).build())
+                .setDefaultCookieStore(paymentCookieStore)
+                .build();
+
+        BasicCookieStore cookieStore = new BasicCookieStore();
+        HttpClient authClient = HttpClientBuilder.create()
+                .setDefaultRequestConfig(RequestConfig.custom().setRedirectsEnabled(false).build())
+                .setDefaultCookieStore(cookieStore)
+                .build();
+
+        RestTemplate paymentRestTemplate = new RestTemplate(
+                new HttpComponentsClientHttpRequestFactory(paymentClient)
+        );
+        RestTemplate authRestTemplate = new RestTemplate(
+                new HttpComponentsClientHttpRequestFactory(authClient)
+        );
+
+        // 1. GET /oauth2/authorization/auth-server
+        ResponseEntity<String> r1 = paymentRestTemplate.getForEntity(
+                "http://payment-service:8080/oauth2/authorization/auth-server",
+                String.class
+        );
+        String location1 = r1.getHeaders().getFirst("Location");
+
+        // 2. GET /oauth2/authorize
+        ResponseEntity<String> r2 = authRestTemplate.getForEntity(new URI(location1), String.class);
+        String location2 = r2.getHeaders().getFirst("Location");
+
+        // 3. GET /login
+        ResponseEntity<String> r3 = authRestTemplate.getForEntity(new URI(location2), String.class);
+        String csrf = extractCsrfToken(r3.getBody());
+
+        // 4. POST /login (с переданными username/password)
+        MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
+        form.add("username", email);
+        form.add("password", password);
+        form.add("_csrf", csrf);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+
+        ResponseEntity<String> r4 = authRestTemplate.postForEntity(
+                new URI(location2),
+                new HttpEntity<>(form, headers),
+                String.class
+        );
+
+        String location3 = r4.getHeaders().getFirst("Location");
+        if (location3 != null && !location3.contains("code=")) {
+            ResponseEntity<String> r5 = authRestTemplate.getForEntity(new URI(location1), String.class);
+            location3 = r5.getHeaders().getFirst("Location");
+        }
+
+        String code = extractCode(location3);
+
+        ResponseEntity<String> callbackResponse = paymentRestTemplate.getForEntity(new URI(location3), String.class);
+
+        ResponseEntity<Map> tokenResponse = paymentRestTemplate.getForEntity(
+                "http://payment-service:8080/token",
+                Map.class
+        );
+
+        return (String) tokenResponse.getBody().get("access_token");
+    }
+
+    private String createAccount(String token, String name, String currency) {
+        RestTemplate restTemplate = new RestTemplate();
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(token);
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        AccountCreateDto dto = new AccountCreateDto(name, currency);
+        HttpEntity<AccountCreateDto> request = new HttpEntity<>(dto, headers);
+
+        ResponseEntity<Map> response = restTemplate.exchange(
+                BASE_URL + "/api/accounts/create",
+                HttpMethod.POST,
+                request,
+                Map.class
+        );
+
+        return (String) response.getBody().get("publicId");
+    }
+
+    private void clearUsersFromAuthServerDB(String jdbcUrl, String user, String password) throws SQLException {
+
+        try (Connection connection = DriverManager.getConnection(jdbcUrl, user, password);
+             Statement statement = connection.createStatement()) {
+            int deleted = statement.executeUpdate("DELETE FROM users");
+            System.out.println("✅ Deleted " + deleted + " users");
+        } catch (SQLException e) {
+            System.err.println("❌ Error deleting users: " + e.getMessage());
+            throw e;
+        }
+    }
+
+    private void clearAccountsFromPaymentServiceDB(String jdbcUrl, String user, String password) throws SQLException {
+        try (Connection connection = DriverManager.getConnection(jdbcUrl, user, password);
+             Statement statement = connection.createStatement()) {
+            int deleted = statement.executeUpdate("DELETE FROM accounts");
+            System.out.println("✅ Deleted " + deleted + " accounts");
+        } catch (SQLException e) {
+            System.err.println("❌ Error deleting accounts: " + e.getMessage());
+            throw e;
         }
     }
 
@@ -205,6 +437,4 @@ public class AuthorizationIntegrationTests {
         }
         return null;
     }
-
-
 }

@@ -130,11 +130,56 @@ class TransferControllerTests {
     }
 
     @Test
-    void shouldReturn400WhenCreateTransferWithInvalidData() throws Exception {
+    void shouldReturn400WhenFromAccountIsNull() throws Exception {
         TransferCreateDto invalidDto = new TransferCreateDto(
-                null,  // fromAccountId = null
+                null,
                 toAccountId,
-                BigDecimal.valueOf(-100L)  // отрицательная сумма
+                BigDecimal.valueOf(150L)
+        );
+
+        mockMvc.perform(post("/api/transfers/create")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(invalidDto)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test
+    void shouldReturn400WhenToAccountIsNull() throws Exception {
+        TransferCreateDto invalidDto = new TransferCreateDto(
+                fromAccountId,
+                null,
+                BigDecimal.valueOf(150L)
+        );
+
+        mockMvc.perform(post("/api/transfers/create")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(invalidDto)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test
+    void shouldReturn400WhenAmountIsNegative() throws Exception {
+        TransferCreateDto invalidDto = new TransferCreateDto(
+                fromAccountId,
+                toAccountId,
+                BigDecimal.valueOf(-100L)
+        );
+
+        mockMvc.perform(post("/api/transfers/create")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(invalidDto)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test
+    void shouldReturn400WhenAmountIsZero() throws Exception {
+        TransferCreateDto invalidDto = new TransferCreateDto(
+                fromAccountId,
+                toAccountId,
+                BigDecimal.ZERO
         );
 
         mockMvc.perform(post("/api/transfers/create")

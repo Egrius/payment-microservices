@@ -1,5 +1,6 @@
 package by.egrius.payment_service.config.prod;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
@@ -29,8 +30,11 @@ import java.util.Map;
 public class CacheConfig {
 
     @Bean
-    public RedisConnectionFactory lettuceConnectionFactory() {
-        return new LettuceConnectionFactory(new RedisStandaloneConfiguration("localhost", 6379));
+    public RedisConnectionFactory lettuceConnectionFactory( @Value("${spring.data.redis.host}") String redisHost,
+                                                            @Value("${spring.data.redis.port}") int redisPort) {
+        System.out.println("✅✅✅ Redis host: " + redisHost);
+        System.out.println("✅✅✅ Redis port: " + redisPort);
+        return new LettuceConnectionFactory(new RedisStandaloneConfiguration(redisHost, redisPort));
     }
 
     private ObjectMapper objectMapper() {

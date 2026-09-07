@@ -269,7 +269,7 @@ public class SecurityConfig {
                             .claim("username", user.getUsername())
                             .claim("email", email)
                             .claim("public_id", user.getPublicId().toString())
-                            .claim("roles",  new ArrayList<>(user.getRoles())); // Updated to check for an admin
+                            .claim("role",  user.getRole().getAbbr());
 
                 } else {
                     System.out.println("Principal is NOT org.springframework.security.core.userdetails.User. It is: " + principal.getClass().getName());

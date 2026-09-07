@@ -1,5 +1,6 @@
 package by.egrius.payment_service.exception.handler;
 
+import by.egrius.payment_service.exception.ResourceNotFoundException;
 import by.egrius.payment_service.exception.payment_service.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -40,6 +41,12 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleAccountNotFound(AccountNotFoundException e) {
         log.warn("Account not found: {}", e.getMessage());
         return buildErrorResponse(e, HttpStatus.NOT_FOUND, "ACCOUNT_NOT_FOUND", e.getMessage());
+    }
+
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleResourceNotFound(ResourceNotFoundException e) {
+        log.warn("Resource not found: {}", e.getMessage());
+        return buildErrorResponse(e, HttpStatus.NOT_FOUND, "RESOURCE_NOT_FOUND", e.getMessage());
     }
 
     @ExceptionHandler(TransferNotFoundException.class)
