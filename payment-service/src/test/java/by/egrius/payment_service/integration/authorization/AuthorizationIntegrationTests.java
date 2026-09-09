@@ -10,7 +10,10 @@ import org.apache.hc.client5.http.impl.classic.HttpClientBuilder;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 import org.springframework.http.*;
 import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.util.LinkedMultiValueMap;
@@ -42,18 +45,82 @@ docker exec -it testcontainers-auth_db-1 psql -U postgres -d api_gateway_auth_se
 docker exec -it testcontainers-auth_db-1 psql -U postgres -d api_gateway_auth_server_db -f /tmp/oauth2-authorization-schema.sql
 docker exec -it testcontainers-auth_db-1 psql -U postgres -d api_gateway_auth_server_db -f /tmp/oauth2-authorization-consent-schema.sql
  */
-
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class AuthorizationIntegrationTests {
 
 
-    private static final int apiPort = 8080;
-    private static final String BASE_URL = "http://payment-service:" + apiPort;
-    private static final String AUTH_SERVER_URL = "http://auth-server:9000";
+    private static final String BASE_URL = "http://localhost:8080";
+    private static final String AUTH_SERVER_URL = "http://localhost:9000";
+    private static final String PAYMENT_DB_JDBC = "jdbc:postgresql://localhost:5435/api_gateway_db";
+    private static final String AUTH_DB_JDBC = "jdbc:postgresql://localhost:5433/api_gateway_auth_server_db";
+    private static final String DB_USER = "postgres";
+    private static final String DB_PASSWORD = "2Pg8_06Egr";
+
+    @BeforeAll
+     void startContainers() throws Exception {
+
+        ProcessBuilder check = new ProcessBuilder("docker", "ps");
+        check.redirectErrorStream(true);
+
+        Process p = check.start();
+        if (p.waitFor() != 0) {
+            throw new RuntimeException("Docker is not running");
+        }
+
+        System.out.println("🚀 Starting Docker Compose...");
+        Process process = new ProcessBuilder(
+                "docker-compose",
+                "-f", "src/test/resources/testcontainers/docker-compose-test.yaml",
+                "up", "-d"
+        ).inheritIO().start();
+
+        int exitCode = process.waitFor();
+        if (exitCode != 0) {
+            throw new RuntimeException("Docker Compose failed with exit code: " + exitCode);
+        }
+
+        System.out.println("⏳ Waiting for services to start...");
+
+        waitForService(BASE_URL + "/actuator/health", 5, 5);
+
+        System.out.println("✅ Containers are ready!");
+    }
+
+    @AfterAll
+    static void stopContainers() throws Exception {
+        System.out.println("🛑 Stopping Docker Compose...");
+        new ProcessBuilder(
+                "docker-compose",
+                "-f", "src/test/resources/testcontainers/docker-compose-test.yaml",
+                "down"
+        ).inheritIO().start().waitFor();
+        System.out.println("✅ Containers stopped!");
+    }
 
     @Test
     void shouldGetJwtTokenAndGetAccessToAccounts() throws Exception {
 
-        CookieStore paymentCookieStore = new BasicCookieStore();
+        RegisterRequest registerRequest = new RegisterRequest("TestUser", "123Test", "testEmail@gmail.com");
+        RestTemplate restTemplate = new RestTemplate();
+
+        try {
+            ResponseEntity<String> registerResponse = restTemplate.postForEntity(
+                    "http://payment-service:8080/register",
+                    registerRequest,
+                    String.class
+            );
+            System.out.println("✅ User registered: " + registerResponse.getStatusCode());
+
+        } catch (HttpClientErrorException.Conflict e) {
+
+            System.out.println("ℹ️ User already exists, continuing...");
+        } catch (Exception e) {
+            // Другие ошибки — логируем и пробрасываем
+            System.err.println("❌ Registration failed: " + e.getMessage());
+            throw e;
+        }
+
+            CookieStore paymentCookieStore = new BasicCookieStore();
         HttpClient paymentClient = HttpClientBuilder.create()
                 .setDefaultRequestConfig(RequestConfig.custom().setRedirectsEnabled(false).build())
                 .setDefaultCookieStore(paymentCookieStore)
@@ -75,7 +142,7 @@ public class AuthorizationIntegrationTests {
 
         // Creating session for payment-service and getting redirection
         ResponseEntity<String> r1 = paymentRestTemplate.getForEntity(
-                 new URI("http://payment-service:8080/oauth2/authorization/auth-server"),
+                "http://payment-service:8080/oauth2/authorization/auth-server",
                 String.class
         );
         String location1 = r1.getHeaders().getFirst("Location");
@@ -231,8 +298,8 @@ public class AuthorizationIntegrationTests {
         String user = "postgres";
         String password = "2Pg8_06Egr";
 
-        clearUsersFromAuthServerDB(jdbcUrlAuthServer,user, password);
-        clearAccountsFromPaymentServiceDB(jdbcUrlPaymentService, user, password);
+        clearUsersFromAuthServerDB(AUTH_DB_JDBC, DB_USER, DB_PASSWORD);
+        clearAccountsFromPaymentServiceDB(PAYMENT_DB_JDBC, DB_USER, DB_PASSWORD);
 
         // 3. Регистрируем пользователей через API
         RestTemplate restTemplate = new RestTemplate();
@@ -284,8 +351,8 @@ public class AuthorizationIntegrationTests {
         System.out.println("Account A: " + accountAId);
         System.out.println("Account B: " + accountBId);
 
-        clearUsersFromAuthServerDB(jdbcUrlAuthServer,user, password);
-        clearAccountsFromPaymentServiceDB(jdbcUrlPaymentService, user, password);
+        clearUsersFromAuthServerDB(AUTH_DB_JDBC, DB_USER, DB_PASSWORD);
+        clearAccountsFromPaymentServiceDB(PAYMENT_DB_JDBC, DB_USER, DB_PASSWORD);
 
         // Getting User_B's Account from User_A
 
@@ -436,5 +503,29 @@ public class AuthorizationIntegrationTests {
             return csrfInput.val();
         }
         return null;
+    }
+
+    private void waitForService(String healthUrl, int retries, int interval) {
+        RestTemplate template = new RestTemplate();
+
+        for (int i = 0; i < retries; i++) {
+            try {
+                ResponseEntity<String> response = template.getForEntity(healthUrl, String.class);
+                if (response.getStatusCode().is2xxSuccessful()) {
+                    System.out.println("✅ Service ready at " + healthUrl);
+                    return;
+                }
+            } catch (Exception e) {
+                // Игнорируем — сервис ещё не готов
+                System.out.println("⏳ Waiting for " + healthUrl + "... (" + (i + 1) + "/" + retries + ") - " + e.getMessage());
+            }
+            try {
+                Thread.sleep(interval * 1000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException("Wait interrupted", e);
+            }
+        }
+        throw new RuntimeException("Could not connect to service at " + healthUrl + " after " + retries + " attempts");
     }
 }
