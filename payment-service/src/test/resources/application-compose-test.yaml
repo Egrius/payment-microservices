@@ -1,0 +1,10 @@
+spring:
+  docker:
+    compose:
+      enabled: true
+      file: src/test/resources/testcontainers/docker-compose-test.yml
+      stop:
+        command: down
+      lifecycle-management: start_and_stop
+      log:
+        enabled: true
