@@ -1,6 +1,6 @@
 package by.egrius.payment_service.integration.authorization;
 
-import by.egrius.payment_service.dto.RegisterRequest;
+import by.egrius.payment_service.dto.request.RegisterRequest;
 import by.egrius.payment_service.dto.account.AccountCreateDto;
 import org.apache.hc.client5.http.classic.HttpClient;
 import org.apache.hc.client5.http.config.RequestConfig;
@@ -45,12 +45,21 @@ docker exec -it testcontainers-auth_db-1 psql -U postgres -d api_gateway_auth_se
 docker exec -it testcontainers-auth_db-1 psql -U postgres -d api_gateway_auth_server_db -f /tmp/oauth2-authorization-schema.sql
 docker exec -it testcontainers-auth_db-1 psql -U postgres -d api_gateway_auth_server_db -f /tmp/oauth2-authorization-consent-schema.sql
  */
+
+/**
+ * Integration tests that spin up the full stack via docker-compose.
+ *
+ * Uses ProcessBuilder instead of Testcontainers because the services
+ * communicate via fixed hostnames (auth-server:9000, payment-service:8080)
+ * inside the docker network, and the OAuth2 redirect flow relies on those names.
+ *
+ * Requires Docker running locally.
+ */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class AuthorizationIntegrationTests {
 
 
     private static final String BASE_URL = "http://localhost:8080";
-    private static final String AUTH_SERVER_URL = "http://localhost:9000";
     private static final String PAYMENT_DB_JDBC = "jdbc:postgresql://localhost:5435/api_gateway_db";
     private static final String AUTH_DB_JDBC = "jdbc:postgresql://localhost:5433/api_gateway_auth_server_db";
     private static final String DB_USER = "postgres";
@@ -67,7 +76,7 @@ public class AuthorizationIntegrationTests {
             throw new RuntimeException("Docker is not running");
         }
 
-        System.out.println("🚀 Starting Docker Compose...");
+        System.out.println("Starting Docker Compose...");
         Process process = new ProcessBuilder(
                 "docker-compose",
                 "-f", "src/test/resources/testcontainers/docker-compose-test.yaml",
@@ -79,22 +88,22 @@ public class AuthorizationIntegrationTests {
             throw new RuntimeException("Docker Compose failed with exit code: " + exitCode);
         }
 
-        System.out.println("⏳ Waiting for services to start...");
+        System.out.println("Waiting for services to start...");
 
         waitForService(BASE_URL + "/actuator/health", 5, 5);
 
-        System.out.println("✅ Containers are ready!");
+        System.out.println("Containers are ready!");
     }
 
     @AfterAll
     static void stopContainers() throws Exception {
-        System.out.println("🛑 Stopping Docker Compose...");
+        System.out.println("Stopping Docker Compose...");
         new ProcessBuilder(
                 "docker-compose",
                 "-f", "src/test/resources/testcontainers/docker-compose-test.yaml",
-                "down"
+                "down", "-v"
         ).inheritIO().start().waitFor();
-        System.out.println("✅ Containers stopped!");
+        System.out.println("Containers stopped!");
     }
 
     @Test
@@ -109,14 +118,14 @@ public class AuthorizationIntegrationTests {
                     registerRequest,
                     String.class
             );
-            System.out.println("✅ User registered: " + registerResponse.getStatusCode());
+            System.out.println("User registered: " + registerResponse.getStatusCode());
 
         } catch (HttpClientErrorException.Conflict e) {
 
-            System.out.println("ℹ️ User already exists, continuing...");
+            System.out.println("User already exists, continuing...");
         } catch (Exception e) {
             // Другие ошибки — логируем и пробрасываем
-            System.err.println("❌ Registration failed: " + e.getMessage());
+            System.err.println("Registration failed: " + e.getMessage());
             throw e;
         }
 
@@ -230,6 +239,7 @@ public class AuthorizationIntegrationTests {
                 String.class
         );
         System.out.println("Main page: " + mainPage.getBody());
+        assertThat(mainPage.getStatusCode()).isEqualTo(HttpStatus.OK);
     }
 
     private String extractCode(String location) {
@@ -257,7 +267,10 @@ public class AuthorizationIntegrationTests {
         } catch (HttpClientErrorException.Unauthorized e) {
             assertEquals(HttpStatus.UNAUTHORIZED, e.getStatusCode());
             System.out.println("Got 401 as expected");
+
+            assertEquals(HttpStatus.UNAUTHORIZED, e.getStatusCode());
         }
+
     }
 
     @Test
@@ -516,7 +529,6 @@ public class AuthorizationIntegrationTests {
                     return;
                 }
             } catch (Exception e) {
-                // Игнорируем — сервис ещё не готов
                 System.out.println("⏳ Waiting for " + healthUrl + "... (" + (i + 1) + "/" + retries + ") - " + e.getMessage());
             }
             try {

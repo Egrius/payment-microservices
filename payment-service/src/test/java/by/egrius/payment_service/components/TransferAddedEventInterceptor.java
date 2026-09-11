@@ -5,15 +5,15 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Component
 public class TransferAddedEventInterceptor {
-    private final List<TransferAddedEvent> capturedEvents = new ArrayList<>();
+    private final List<TransferAddedEvent> capturedEvents = new CopyOnWriteArrayList<>();
     private final CountDownLatch latch = new CountDownLatch(1);
 
     @RabbitListener(queues = "interceptor.queue")

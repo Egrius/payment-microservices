@@ -1,16 +1,20 @@
 package by.Egrius.notification_service.controller;
 
-import by.Egrius.notification_service.dto.SubscriptionCreateDto;
-import by.Egrius.notification_service.dto.SubscriptionReadDto;
+import by.Egrius.notification_service.dto.subscription.SubscriptionCreateDto;
+import by.Egrius.notification_service.dto.subscription.SubscriptionReadDto;
+import by.Egrius.notification_service.exception.InvalidUserIdException;
 import by.Egrius.notification_service.service.NotificationService;
 import by.Egrius.notification_service.service.SubscriptionService;
-import jakarta.websocket.server.PathParam;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -23,29 +27,38 @@ public class NotificationController {
 
     @PostMapping
     public ResponseEntity<SubscriptionReadDto> createSubscription(
-            @RequestBody SubscriptionCreateDto createDto
+            @Valid @RequestBody SubscriptionCreateDto createDto
     ) {
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(subscriptionService.createSubscription(createDto));
     }
 
-    // TODO make JWT token verification on userId
-    /*
-        UUID on controller's method made to throw an exception if UUID format is incorrect
-        I may added dto with @Valid but it's get method, so there is no place for requestBody
-     */
-    @GetMapping("/{userId}")
-    public SseEmitter listenSubscription(@PathVariable("userId") UUID userId) {
-        return subscriptionService.createSseForSubscription(userId.toString());
+    @GetMapping
+    public SseEmitter listenSubscription(@AuthenticationPrincipal Jwt jwt) {
+        return subscriptionService.createSseForSubscription(extractUserId(jwt));
     }
 
-    @DeleteMapping(path = "/unsubscribe/{userId}")
-    public ResponseEntity<java.util.Map<String, Boolean>> deleteSubscription(@PathVariable("userId") UUID userId ) {
-        boolean deleted = subscriptionService.unsubscribeAndDeleteSse(userId.toString());
+    @DeleteMapping(path = "/unsubscribe")
+    public ResponseEntity<Map<String, Boolean>> deleteSubscription(@AuthenticationPrincipal Jwt jwt) {
+        boolean deleted = subscriptionService.unsubscribeAndDeleteSse(extractUserId(jwt).toString());
 
         return ResponseEntity
                 .status(HttpStatus.ACCEPTED)
-                .body(java.util.Map.of("deleted", deleted));
+                .body(Map.of("deleted", deleted));
+    }
+
+    private UUID extractUserId(Jwt jwt) {
+        String publicId = jwt.getClaimAsString("public_id");
+
+        if (publicId == null || publicId.isBlank()) {
+            throw new InvalidUserIdException("public_id claim is missing in token");
+        }
+
+        try {
+            return UUID.fromString(publicId);
+        } catch (IllegalArgumentException e) {
+            throw new InvalidUserIdException("public_id claim is not a valid UUID: " + publicId);
+        }
     }
 }

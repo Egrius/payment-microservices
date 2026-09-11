@@ -1,13 +1,11 @@
 package by.Egrius.notification_service.service;
 
-import by.Egrius.notification_service.dto.SubscriptionCreateDto;
-import by.Egrius.notification_service.dto.SubscriptionReadDto;
-import by.Egrius.notification_service.entity.Notification;
-import by.Egrius.notification_service.entity.NotificationStatus;
+import by.Egrius.notification_service.dto.subscription.SubscriptionCreateDto;
+import by.Egrius.notification_service.dto.subscription.SubscriptionReadDto;
 import by.Egrius.notification_service.entity.Subscription;
 import by.Egrius.notification_service.event.TransferProcessedEvent;
+import by.Egrius.notification_service.exception.SubscriptionNotFoundException;
 import by.Egrius.notification_service.mapper.SubscriptionMapper;
-import by.Egrius.notification_service.repository.NotificationRepository;
 import by.Egrius.notification_service.repository.SubscriptionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,11 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
-import java.io.IOException;
-import java.time.LocalDateTime;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Function;
 
 @Slf4j
 @Service
@@ -52,35 +46,40 @@ public class SubscriptionService {
         return subscriptionMapper.toReadDto(subscriptionRepository.save(subscription));
     }
 
-    // TODO Add logic to send all the pending notifications to the user and change them to SENT
+    public SseEmitter createSseForSubscription(UUID userId) {
 
-    public SseEmitter createSseForSubscription(String userId) {
+        log.debug("Creating SSE emitter for user: {}", userId);
 
-        // TODO custom exception
-        Subscription subscription = subscriptionRepository.findLatestActiveByUserId(UUID.fromString(userId))
-                .orElseThrow(() -> new RuntimeException("No active subscriptions were found"));
+        subscriptionRepository.findLatestActiveByUserId(userId)
+                .orElseThrow(() -> new SubscriptionNotFoundException(userId.toString()));
 
-        sseEmitterStorageService.remove(userId);
+        sseEmitterStorageService.remove(userId.toString());
 
         SseEmitter emitter = new SseEmitter(SSE_EMITTER_TIMEOUT);
+        sseEmitterStorageService.put(userId.toString(), emitter);
 
-        sseEmitterStorageService.put(userId, emitter);
-
-        notificationService.sendAllPendingNotificationsToUser(userId);
+        try{
+            notificationService.sendAllPendingNotificationsToUser(userId.toString());
+        } catch (Exception e) {
+            log.error("Failed to send pending notifications for user {}", userId, e);
+            sseEmitterStorageService.remove(userId.toString());
+            emitter.completeWithError(e);
+            throw e;
+        }
 
         emitter.onCompletion(() -> {
-            sseEmitterStorageService.remove(userId);
-            log.debug("Emitter completed for user: {}", userId);
+            sseEmitterStorageService.remove(userId.toString());
+            log.debug("SSE completed for user: {}", userId);
         });
 
         emitter.onTimeout(() -> {
-            sseEmitterStorageService.remove(userId);
-            log.debug("Emitter timeout for user: {}", userId);
+            sseEmitterStorageService.remove(userId.toString());
+            log.debug("SSE timeout for user: {}", userId);
         });
 
         emitter.onError((ex) -> {
-            sseEmitterStorageService.remove(userId);
-            log.debug("Emitter error for user: {}", userId, ex);
+            sseEmitterStorageService.remove(userId.toString());
+            log.error("SSE error for user: {}", userId, ex);
         });
 
         return emitter;

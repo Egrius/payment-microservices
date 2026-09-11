@@ -18,6 +18,7 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.utility.DockerImageName;
 import tools.jackson.databind.DefaultTyping;
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectReader;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
 import tools.jackson.databind.jsontype.PolymorphicTypeValidator;
@@ -51,7 +52,6 @@ public class TestCacheConfig {
 
     private ObjectMapper objectMapper() {
         PolymorphicTypeValidator ptv = BasicPolymorphicTypeValidator.builder()
-                .allowIfSubType("by.egrius.api_gateway.dto.")
                 .allowIfSubType("by.egrius.payment_service.dto.")
                 .allowIfSubType("java.util.")
                 .allowIfSubType("java.math.")
@@ -65,9 +65,9 @@ public class TestCacheConfig {
     }
 
     @Bean
-    RedisTemplate<String, String> redisTemplate(RedisConnectionFactory connectionFactory) {
+    RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory connectionFactory) {
 
-        RedisTemplate<String, String> template = new RedisTemplate<>();
+        RedisTemplate<String, Object> template = new RedisTemplate<>();
         template.setConnectionFactory(connectionFactory);
 
         template.setKeySerializer(new StringRedisSerializer());

@@ -17,8 +17,6 @@
     import lombok.RequiredArgsConstructor;
     import lombok.extern.slf4j.Slf4j;
     import org.springframework.amqp.rabbit.core.RabbitTemplate;
-    import org.springframework.beans.factory.annotation.Autowired;
-    import org.springframework.cache.CacheManager;
     import org.springframework.cache.annotation.Cacheable;
     import org.springframework.data.domain.Page;
     import org.springframework.data.domain.PageRequest;
@@ -44,11 +42,8 @@
 
         private final RabbitTemplate rabbitTemplate;
 
-        private final String EXCHANGE_NAME = "processing.exchange";
-        private final String ROUTING_KEY = "transfer.processing";
-
-        @Autowired
-        private CacheManager cacheManager;
+        private static final String EXCHANGE_NAME = "processing.exchange";
+        private static final String ROUTING_KEY = "transfer.processing";
 
         /**
          * Creates a transfer
@@ -110,18 +105,25 @@
                             String key = publicUserId + "_" + savedTransferReadDto.publicId();
                             cacheService.put("transfers", key, savedTransferReadDto);
 
-                            // Sending to RabbitMQ
-                            rabbitTemplate.convertAndSend(
-                                    EXCHANGE_NAME,
-                                    ROUTING_KEY,
-                                    new TransferAddedEvent(
-                                            publicUserId,
-                                            savedTransfer.getPublicId(),
-                                            fromAccount.getId(),
-                                            toAccount.getId(),
-                                            savedTransfer.getId()
-                                    ));
-                            log.info("TransferAddedEvent sent to RabbitMQ: transferId={}", savedTransfer.getPublicId());
+                            try {
+                                // Sending to RabbitMQ
+                                rabbitTemplate.convertAndSend(
+                                        EXCHANGE_NAME,
+                                        ROUTING_KEY,
+                                        new TransferAddedEvent(
+                                                publicUserId,
+                                                savedTransfer.getPublicId(),
+                                                fromAccount.getId(),
+                                                toAccount.getId(),
+                                                savedTransfer.getId()
+                                        ));
+                                log.info("TransferAddedEvent sent to RabbitMQ: transferId={}", savedTransfer.getPublicId());
+                            } catch (Exception e) {
+                                log.error("Failed to send TransferAddedEvent for transfer {} — transfer will stay PENDING",
+                                        savedTransfer.getPublicId(), e);
+
+                                // Here outbox pattern can be added
+                            }
                         }
                     }
             );
@@ -133,9 +135,6 @@
 
             log.debug("Getting transfer status: transferId={}, userId={}", transferPublicId, userPublicId);
 
-            if (transferPublicId == null || userPublicId == null) {
-                throw new IllegalArgumentException("TransferPublicId and UserId cannot be null");
-            }
 
             Transfer transfer = transferRepository
                     .findByTransferPublicId_and_UserPublicId(transferPublicId, userPublicId)
@@ -159,37 +158,11 @@
             return pageResult.map(TransferReadDto::fromProjection);
         }
 
-        public List<AdminSenderLeaderboardDto> getSenderLeaderboard(Integer leaderboardLimit, Integer daysCount) {
+
+        // Not a main feature, no enpoints were added yet
+        public List<AdminSenderLeaderboardDto> getSenderLeaderboard(int leaderboardLimit, int daysCount) {
 
             log.debug("Getting sender leaderboard: limit={}, days={}", leaderboardLimit, daysCount);
-
-    //        if (leaderboardLimit == null || daysCount == null) {
-    //            throw new InvalidLeaderboardParamsException(leaderboardLimit, daysCount);
-    //        }
-    //
-    //        if (leaderboardLimit <= 0) {
-    //            throw new InvalidLeaderboardParamsException(
-    //                    String.format("Leaderboard limit must be positive, got: %d", leaderboardLimit),
-    //                    leaderboardLimit,
-    //                    daysCount
-    //            );
-    //        }
-    //
-    //        if (daysCount <= 0) {
-    //            throw new InvalidLeaderboardParamsException(
-    //                    String.format("Days count must be positive, got: %d", daysCount),
-    //                    leaderboardLimit,
-    //                    daysCount
-    //            );
-    //        }
-    //
-    //        if (leaderboardLimit > 1000) {
-    //            throw new InvalidLeaderboardParamsException(
-    //                    String.format("Leaderboard limit cannot exceed 1000, got: %d", leaderboardLimit),
-    //                    leaderboardLimit,
-    //                    daysCount
-    //            );
-    //        }
 
             List<AdminSenderLeaderboardDto> result = transferRepository
                     .findTopUsersByTransferCount(leaderboardLimit, daysCount)

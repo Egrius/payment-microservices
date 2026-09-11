@@ -1,6 +1,5 @@
 package by.egrius.payment_service.context;
 
-import by.egrius.payment_service.integration.config.TestCacheConfig;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.persistence.autoconfigure.EntityScan;
 import org.springframework.boot.security.autoconfigure.SecurityAutoConfiguration;
@@ -15,13 +14,10 @@ import org.springframework.boot.webmvc.autoconfigure.WebMvcAutoConfiguration;
 import org.springframework.context.annotation.*;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.scheduling.annotation.EnableAsync;
-import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 
-import java.util.concurrent.Executor;
 
 @Configuration
-@Import(TestCacheConfig.class)
 @EnableAutoConfiguration(exclude = {
         SecurityAutoConfiguration.class,
         UserDetailsServiceAutoConfiguration.class,

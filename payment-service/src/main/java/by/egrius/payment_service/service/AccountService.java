@@ -7,9 +7,6 @@ import by.egrius.payment_service.exception.ResourceNotFoundException;
 import by.egrius.payment_service.mapper.AccountMapper;
 import by.egrius.payment_service.repository.AccountRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.cache.Cache;
-import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
@@ -29,9 +26,6 @@ public class AccountService {
     private final AccountMapper accountMapper;
     private final CacheService cacheService;
 
-    @Autowired
-    private CacheManager cacheManager;
-
     @Transactional
     @CachePut(cacheNames = {"accounts"}, key = "#publicUserId + '_' + #result.publicId()")
     public AccountReadDto createAccount(UUID publicUserId, AccountCreateDto dto) {
@@ -47,7 +41,7 @@ public class AccountService {
         return accountMapper.toReadDto(account);
     }
 
-    //TODO throw 404 from here, not 403 to let some guy know that this account exists
+    // Return 404 (not 403) to avoid leaking account existence to other users
     @Cacheable(cacheNames = {"accounts"}, key = "#publicUserId + '_' + #publicAccountId")
     public AccountReadDto getAccountByPublicId(UUID publicAccountId, UUID publicUserId) {
 

@@ -1,15 +1,13 @@
 package by.egrius.payment_service.integration.config;
 
-import org.springframework.test.context.ActiveProfiles;
+import org.springframework.context.annotation.Profile;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
 
-@ActiveProfiles("test")
-@Testcontainers
+@Profile("test")
 public abstract class BaseIntegrationTest {
 
     protected static final PostgreSQLContainer POSTGRES;

@@ -47,7 +47,6 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;

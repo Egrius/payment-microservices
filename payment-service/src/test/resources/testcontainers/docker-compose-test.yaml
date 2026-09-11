@@ -41,7 +41,7 @@ services:
 
   auth-server:
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://{$AUTH_SERVER_HOST}:{$AUTH_SERVER_PORT}/actuator/health"]
+      test: ["CMD", "curl", "-f", "http://${AUTH_SERVER_HOST}:${AUTH_SERVER_PORT}/actuator/health"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -72,7 +72,7 @@ services:
     restart: on-failure
 
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://{$PAYMENT_SERVICE_HOST}:${PAYMENT_SERVICE_PORT}/actuator/health" ]
+      test: [ "CMD", "curl", "-f", "http://${PAYMENT_SERVICE_HOST}:${PAYMENT_SERVICE_PORT}/actuator/health" ]
       interval: 10s
       timeout: 5s
       retries: 5

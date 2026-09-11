@@ -11,10 +11,12 @@ import by.egrius.payment_service.event.TransferAddedEvent;
 import by.egrius.payment_service.event.TransferProcessedEvent;
 import by.egrius.payment_service.integration.config.BaseIntegrationTest;
 import by.egrius.payment_service.components.TestNotificationListener;
+import by.egrius.payment_service.integration.config.TestCacheConfig;
 import by.egrius.payment_service.integration.config.TestRabbitMQConfig;
 import by.egrius.payment_service.repository.AccountRepository;
 import by.egrius.payment_service.repository.TransferRepository;
 import by.egrius.payment_service.service.AccountService;
+import by.egrius.payment_service.service.TransferFailureHandler;
 import by.egrius.payment_service.service.TransferProcessor;
 import by.egrius.payment_service.service.TransferService;
 import lombok.extern.slf4j.Slf4j;
@@ -26,7 +28,7 @@ import org.springframework.amqp.rabbit.core.RabbitAdmin;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.Profile;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
 import java.math.BigDecimal;
@@ -39,16 +41,15 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.springframework.test.util.AssertionErrors.assertTrue;
 
-@Profile("test")
+@ActiveProfiles("test")
 @Slf4j
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @SpringBootTest(
         classes = ServiceIntegrationTestContext.class,
         webEnvironment = SpringBootTest.WebEnvironment.NONE
 )
-@Import(TestRabbitMQConfig.class)
+@Import({TestRabbitMQConfig.class, TestCacheConfig.class})
 public class TransferServiceConcurrencyTests extends BaseIntegrationTest {
     @Autowired
     private TransferService transferService;
@@ -62,14 +63,17 @@ public class TransferServiceConcurrencyTests extends BaseIntegrationTest {
     @Autowired
     private TestNotificationListener notificationListener;
 
-    @MockitoSpyBean
-    private TransferProcessor transferProcessor;
-
     @Autowired
     private AccountRepository accountRepository;
 
     @Autowired
     private TransferAddedEventInterceptor transferAddedEventInterceptor;
+
+    @MockitoSpyBean
+    private TransferFailureHandler transferFailureHandler;
+
+    @MockitoSpyBean
+    private TransferProcessor transferProcessor;
 
     private UUID fromUserPublicId;
     private UUID toUserPublicId;
@@ -91,6 +95,7 @@ public class TransferServiceConcurrencyTests extends BaseIntegrationTest {
 
         transferRepository.deleteAll();
 
+        // Wait a bit to let queues be cleared
         try {
             Thread.sleep(1000);
         } catch (InterruptedException e) {
@@ -170,7 +175,7 @@ public class TransferServiceConcurrencyTests extends BaseIntegrationTest {
 
         boolean completed = notificationListener.getLatch().await(30, TimeUnit.SECONDS);
 
-        assertTrue("Not all transfers were processed in time", completed);
+        assertTrue(completed, "Not all transfers were processed in time");
 
         List<TransferProcessedEvent> processedEvents = notificationListener.getEvents();
         assertEquals(threadCount, processedEvents.size(),
@@ -200,8 +205,8 @@ public class TransferServiceConcurrencyTests extends BaseIntegrationTest {
         assertEquals(0, expectedFinalBalance.compareTo(finalFromAccount.getBalance()),
                 "Final balance doesn't match expected");
 
-        assertTrue("Unexpected exceptions during transfer creation: " + exceptions,
-                exceptions.isEmpty());
+        assertTrue(exceptions.isEmpty(),
+                "Unexpected exceptions during transfer creation: " + exceptions);
     }
 
     @Test
@@ -221,9 +226,6 @@ public class TransferServiceConcurrencyTests extends BaseIntegrationTest {
 
         List<CompletableFuture<TransferReadDto>> futures = new ArrayList<>();
         List<Throwable> exceptions = Collections.synchronizedList(new ArrayList<>());
-
-        BigDecimal fromBalanceBefore = fromAccount.getBalance();
-        BigDecimal toBalanceBefore = toAccount.getBalance();
 
         futures.add(CompletableFuture.supplyAsync(() -> {
             try {
@@ -259,7 +261,8 @@ public class TransferServiceConcurrencyTests extends BaseIntegrationTest {
                 .filter(Objects::nonNull)
                 .toList();
 
-        awaitLatch.await(60, TimeUnit.SECONDS);
+        boolean allProcessed = awaitLatch.await(60, TimeUnit.SECONDS);
+        assertTrue(allProcessed, "Not all transfers were processed in time");
 
         List<TransferProcessedEvent> processedEvents = notificationListener.getEvents();
         assertEquals(2, processedEvents.size(),
@@ -289,8 +292,6 @@ public class TransferServiceConcurrencyTests extends BaseIntegrationTest {
         }
 
         List<Transfer> transfersFromDB = transferRepository.findAll();
-
-        System.out.println(transfersFromDB);
 
         int succeeded = transfersFromDB.stream().filter(t -> t.getStatus() == TransferStatus.COMPLETED)
                 .toList().size();
@@ -339,15 +340,9 @@ public class TransferServiceConcurrencyTests extends BaseIntegrationTest {
         startLatch.countDown();
         CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new)).join();
 
-        List<TransferReadDto> results = futures.stream()
-                .map(CompletableFuture::join)
-                .filter(Objects::nonNull)
-                .toList();
-
-
         boolean firstProcessed = awaitLatch.await(30, TimeUnit.SECONDS);
-        assertTrue("First transfer should be processed", firstProcessed);
 
+        assertTrue(firstProcessed, "First transfer should be processed");
 
         List<TransferProcessedEvent> processedEvents = notificationListener.getEvents();
         assertEquals(1, processedEvents.size(), "Should receive event for first transfer");
@@ -375,20 +370,18 @@ public class TransferServiceConcurrencyTests extends BaseIntegrationTest {
         log.info("Sending duplicate event for transfer: {}", addedEvent.getTransferId());
         assertDoesNotThrow(() -> transferProcessor.processTransfer(addedEvent));
 
-        verify(transferProcessor, times(1)).handleTransferFailure(
+        verify(transferFailureHandler, times(1)).handle(
                 eq(addedEvent.getTransferId()),
-                eq(addedEvent.getFromAccountId()),
-                eq(addedEvent.getToAccountId()),
                 any(String.class));
 
 
-        boolean duplicateProcessed = duplicateLatch.await(30, TimeUnit.SECONDS);
+        boolean duplicateProcessed = duplicateLatch.await(5, TimeUnit.SECONDS);
         assertFalse(duplicateProcessed, "Duplicate should not be processed");
 
 
         List<TransferProcessedEvent> duplicateEvents = notificationListener.getEvents();
-        assertTrue("Should not create processed event for the same transfer twice",
-                duplicateEvents.isEmpty());
+        assertTrue(duplicateEvents.isEmpty(),
+                "Should not create processed event for the same transfer twice");
 
         List<Transfer> finalTransfers = transferRepository.findAll();
         assertEquals(1, finalTransfers.size(),
@@ -422,8 +415,8 @@ public class TransferServiceConcurrencyTests extends BaseIntegrationTest {
                 "Total balance should remain constant");
 
 
-        assertTrue("Unexpected exceptions during transfer creation: " + exceptions,
-                exceptions.isEmpty());
+        assertTrue(exceptions.isEmpty(),
+                "Unexpected exceptions during transfer creation: " + exceptions);
 
         log.info("Duplicate processing test passed!");
     }

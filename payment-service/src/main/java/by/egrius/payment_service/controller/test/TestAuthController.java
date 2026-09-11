@@ -27,7 +27,7 @@ public class TestAuthController {
     public Map<String, String> getTestToken() {
 
         JwtClaimsSet claims = JwtClaimsSet.builder()
-                .issuer("http://api-gateway.local:8080")
+                .issuer("http://payment-service.local:8080")
                 .subject("test@example.com")
                 .claim("email", "test@example.com")
                 .claim("username", "testuser")

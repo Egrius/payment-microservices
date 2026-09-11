@@ -25,7 +25,6 @@ public class SecurityConfig {
                 .oauth2ResourceServer(c ->
                         c.jwt(jwtConfigurer -> jwtConfigurer
                                 .jwkSetUri("http://auth-server.local:9000/oauth2/jwks")
-                                .decoder(jwtDecoder())
                         )
                 )
                 .sessionManagement(session ->
@@ -34,8 +33,8 @@ public class SecurityConfig {
                 .build();
     }
 
-    @Bean
-    public JwtDecoder jwtDecoder() {
-        return NimbusJwtDecoder.withIssuerLocation(issuerUri).build();
-    }
+//    @Bean
+//    public JwtDecoder jwtDecoder() {
+//        return NimbusJwtDecoder.withIssuerLocation(issuerUri).build();
+//    }
 }

@@ -84,12 +84,6 @@ public class GlobalExceptionHandler {
         return buildErrorResponse(e, HttpStatus.CONFLICT, "ALREADY_PROCESSED", e.getMessage());
     }
 
-    @ExceptionHandler(AccountAccessDeniedException.class)
-    public ResponseEntity<ErrorResponse> handleAccessDenied(AccountAccessDeniedException e) {
-        log.warn("Access denied: {}", e.getMessage());
-        return buildErrorResponse(e, HttpStatus.FORBIDDEN, "ACCESS_DENIED", e.getMessage());
-    }
-
     @ExceptionHandler(InvalidLeaderboardParamsException.class)
     public ResponseEntity<ErrorResponse> handleInvalidParams(InvalidLeaderboardParamsException e) {
         log.warn("Invalid leaderboard params: {}", e.getMessage());

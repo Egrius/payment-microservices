@@ -1,4 +1,4 @@
-package by.Egrius.notification_service.dto;
+package by.Egrius.notification_service.dto.subscription;
 
 import java.time.LocalDateTime;
 import java.util.UUID;

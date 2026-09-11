@@ -26,12 +26,13 @@ public class AccountController {
         return accountService.getAllAccountsByUserId(currentUserDto.publicId());
     }
 
-    @PostMapping("/create")
-        public ResponseEntity<AccountReadDto> createAccount(
+    @PostMapping
+    public ResponseEntity<AccountReadDto> createAccount(
             @CurrentUser CurrentUserDto currentUserDto,
             @Valid @RequestBody AccountCreateDto dto
     ) {
         AccountReadDto account = accountService.createAccount(currentUserDto.publicId(), dto);
+
         return ResponseEntity
                 .created(URI.create("/api/accounts/" + account.publicId()))
                 .body(account);

@@ -1,5 +1,6 @@
 package by.Egrius.auth_server.controller;
 
+import by.Egrius.auth_server.dto.request.RegisterRequest;
 import by.Egrius.auth_server.entity.RoleName;
 import by.Egrius.auth_server.entity.User;
 import by.Egrius.auth_server.exception.UserEmailAlreadyExistsException;
@@ -9,8 +10,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/api")
@@ -40,7 +39,4 @@ public class AuthController {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body("User registered successfully");
     }
-
 }
-
-record RegisterRequest(String username, String password, String email) {}

@@ -9,13 +9,11 @@ import by.egrius.payment_service.entity.TransferStatus;
 import by.egrius.payment_service.event.TransferAddedEvent;
 import by.egrius.payment_service.integration.config.BaseIntegrationTest;
 import by.egrius.payment_service.integration.config.TestCacheConfig;
-import by.egrius.payment_service.integration.config.TestRabbitMQConfig;
 import by.egrius.payment_service.repository.AccountRepository;
 import by.egrius.payment_service.repository.TransferRepository;
 import by.egrius.payment_service.service.CacheService;
 import by.egrius.payment_service.service.TransferProcessor;
 import by.egrius.payment_service.service.TransferService;
-import lombok.SneakyThrows;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -26,14 +24,16 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.cache.CacheManager;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
-import org.testcontainers.shaded.com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -41,6 +41,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -73,12 +74,13 @@ public class TransferServiceCacheIntegrationTests extends BaseIntegrationTest {
     private CacheService cacheService;
 
     @Autowired
-    private RedisTemplate<String, String> redisTemplate;
+    private RedisTemplate<String, Object> redisTemplate;
 
     @Autowired
     private CacheManager cacheManager;
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    @Autowired
+    private RedisConnectionFactory connectionFactory;
 
     private UUID fromUserId;
     private UUID toUserId;
@@ -89,8 +91,11 @@ public class TransferServiceCacheIntegrationTests extends BaseIntegrationTest {
     @BeforeEach
     void setUp() {
 
+        try (var connection = connectionFactory.getConnection()) {
+            connection.serverCommands().flushDb();
+        }
+
         cacheManager.getCache("transfers").clear();
-        redisTemplate.keys("transfers::*").forEach(redisTemplate::delete);
 
         fromUserId = UUID.randomUUID();
         toUserId = UUID.randomUUID();
@@ -126,7 +131,6 @@ public class TransferServiceCacheIntegrationTests extends BaseIntegrationTest {
     @AfterEach
     void tearDown() {
         cacheManager.getCache("transfers").clear();
-        redisTemplate.keys("transfers::*").forEach(redisTemplate::delete);
     }
 
     @Test
@@ -144,7 +148,9 @@ public class TransferServiceCacheIntegrationTests extends BaseIntegrationTest {
                 fromUserId
         );
 
-        assertThat(redisTemplate.hasKey(redisKey)).isTrue();
+        await().atMost(Duration.ofSeconds(2))
+                .pollInterval(Duration.ofMillis(20))
+                .until(() -> cacheManager.getCache("transfers").get(cacheKey) != null);
 
         Object cached = redisTemplate.opsForValue().get(redisKey);
         assertThat(cached).isInstanceOf(TransferReadDto.class);

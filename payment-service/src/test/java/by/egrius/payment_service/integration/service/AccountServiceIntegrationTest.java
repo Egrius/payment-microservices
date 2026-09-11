@@ -6,12 +6,16 @@ import by.egrius.payment_service.dto.account.AccountReadDto;
 import by.egrius.payment_service.entity.Account;
 import by.egrius.payment_service.exception.ResourceNotFoundException;
 import by.egrius.payment_service.integration.config.BaseIntegrationTest;
+import by.egrius.payment_service.integration.config.TestCacheConfig;
+import by.egrius.payment_service.integration.config.TestRabbitMQConfig;
 import by.egrius.payment_service.repository.AccountRepository;
 import by.egrius.payment_service.service.AccountService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -22,10 +26,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 
+@ActiveProfiles("test")
 @SpringBootTest(
         classes = ServiceIntegrationTestContext.class,
         webEnvironment = SpringBootTest.WebEnvironment.NONE
 )
+@Import(TestCacheConfig.class)
 @Transactional
 class AccountServiceIntegrationTest extends BaseIntegrationTest {
 

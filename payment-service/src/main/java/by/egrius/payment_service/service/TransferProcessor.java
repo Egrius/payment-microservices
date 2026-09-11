@@ -2,7 +2,6 @@ package by.egrius.payment_service.service;
 
 import by.egrius.payment_service.dto.transfer.TransferReadDto;
 import by.egrius.payment_service.entity.Account;
-import by.egrius.payment_service.entity.Transfer;
 import by.egrius.payment_service.entity.TransferStatus;
 import by.egrius.payment_service.event.TransferAddedEvent;
 import by.egrius.payment_service.event.TransferProcessedEvent;
@@ -10,14 +9,13 @@ import by.egrius.payment_service.exception.payment_service.*;
 import by.egrius.payment_service.mapper.TransferMapper;
 import by.egrius.payment_service.repository.AccountRepository;
 import by.egrius.payment_service.repository.TransferRepository;
+import by.egrius.payment_service.utils.TransactionUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
-import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -33,6 +31,7 @@ public class TransferProcessor {
     private final AccountRepository accountRepository;
     private final CacheService cacheService;
     private final TransferMapper transferMapper;
+    private final TransferFailureHandler transferFailureHandler;
 
     private final RabbitTemplate rabbitTemplate;
 
@@ -40,9 +39,9 @@ public class TransferProcessor {
     private static final String EXCHANGE_NAME = "payment.exchange";
     private static final String ROUTING_KEY = "transfer.completed";
 
+
     @RabbitListener(queues = "processing.queue")
     @Transactional(isolation = Isolation.READ_COMMITTED)
-
     public void processTransfer(TransferAddedEvent addedEvent) {
 
         long fromAccountId = addedEvent.getFromAccountId();
@@ -55,18 +54,13 @@ public class TransferProcessor {
 
             executeTransfer(addedEvent.getUserId(), addedEvent.getTransferPublicId(), transferId, fromAccountId, toAccountId);
 
-        } catch (OptimisticLockingFailureException e) {
-            throw e;
-
-        }  catch (InsufficientFundsException e) {
+        } catch (InsufficientFundsException e) {
             log.warn("Transfer {} failed due to insufficient funds", transferId);
-            handleTransferFailure(transferId, fromAccountId, toAccountId,
-                    "Insufficient funds: " + e.getMessage());
-        }
-        catch (Exception e) {
+            transferFailureHandler.handle(transferId, "Insufficient funds: " + e.getMessage());
+
+        } catch (Exception e) {
             log.error("Unexpected error processing transfer {}", transferId, e);
-            handleTransferFailure(transferId, fromAccountId, toAccountId,
-                    "Internal error: " + e.getMessage());
+            transferFailureHandler.handle(transferId, "Internal error: " + e.getMessage());
         }
     }
 
@@ -118,7 +112,7 @@ public class TransferProcessor {
         accountRepository.saveAll(List.of(fromAccount, toAccount));
         int updated = transferRepository.updateTransferStatus(transferReadDto.publicId(), TransferStatus.COMPLETED, LocalDateTime.now());
 
-        if(updated > 0) {
+        if (updated > 0) {
             TransferReadDto updatedTransferReadDto = new TransferReadDto(
                     transferReadDto.publicId(),
                     transferReadDto.toAccountPublicId(),
@@ -132,63 +126,30 @@ public class TransferProcessor {
 
             cacheService.put(TRANSFERS_CACHE_NAME, key, updatedTransferReadDto);
 
-            sendProcessedNotification(fromAccount.getUserId(), updatedTransferReadDto);
+            // Sending notification after commit
+            TransactionUtils.afterCommit(() -> sendProcessedNotification(userId, updatedTransferReadDto));
 
             log.info("Transfer {} processed successfully", transferId);
-        }
-        else {
+        } else {
             throw new TransferUpdateException(transferReadDto.publicId());
         }
     }
 
-    // TODO  outbox pattern for such problems, but may be excessive for such a project
+    // TODO outbox pattern, but may be excessive for such a project
     private void sendProcessedNotification(UUID userId, TransferReadDto transferReadDto) {
         try {
-            log.info("📤 SENDING TransferProcessedEvent to exchange={}, routingKey={}, transferId={}, status={}",
+            log.info("Sending TransferProcessedEvent to exchange={}, routingKey={}, transferId={}, status={}",
                     EXCHANGE_NAME, ROUTING_KEY, transferReadDto.publicId(), transferReadDto.status());
             rabbitTemplate.convertAndSend(
                     EXCHANGE_NAME,
                     ROUTING_KEY,
                     new TransferProcessedEvent(userId, transferReadDto)
             );
-            log.info("TransferProcessedEvent SENT successfully");
+            log.info("TransferProcessedEvent sent: transferId={}", transferReadDto.publicId());
+
         } catch (Exception e) {
             log.error("Failed to send notification of TransferProcessedEvent for transfer {}",
                     transferReadDto.publicId(), e);
-        }
-    }
-
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void handleTransferFailure(Long transferId, long fromAccountId, long toAccountId, String reason) {
-        try {
-            Transfer transfer = transferRepository.findById(transferId).orElse(null);
-            if (transfer == null) {
-                log.error("Transfer {} not found in DB during failure handling", transferId);
-                return;
-            }
-
-            if (transfer.getFromAccount() == null) {
-                log.error("Transfer {} has no fromAccount", transferId);
-                return;
-            }
-
-            UUID userId = transfer.getFromAccount().getUserId();
-
-            if (transfer.getStatus() == TransferStatus.PENDING) {
-                transfer.setStatus(TransferStatus.FAILED);
-                transfer.setReason(reason);
-                transfer.setProcessedAt(LocalDateTime.now());
-                transferRepository.save(transfer);
-
-                String key = CacheService.generateKey(userId.toString(), transfer.getPublicId().toString());
-                cacheService.evict(TRANSFERS_CACHE_NAME, key);
-
-                sendProcessedNotification(userId, transferMapper.mapToReadDto(transfer));
-                log.info("Transfer {} marked as FAILED: {}", transferId, reason);
-            }
-        } catch (Exception saveEx) {
-            log.error("Failed to update transfer {} status to FAILED", transferId, saveEx);
-            throw new TransferProcessingException(transferId, "Failed to update transfer status", saveEx);
         }
     }
 }

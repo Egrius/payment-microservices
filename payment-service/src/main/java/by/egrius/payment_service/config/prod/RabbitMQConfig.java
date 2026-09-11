@@ -1,6 +1,7 @@
 package by.egrius.payment_service.config.prod;
 
 import by.egrius.payment_service.event.TransferAddedEvent;
+import by.egrius.payment_service.exception.payment_service.TransferProcessingException;
 import org.springframework.amqp.core.*;
 import org.springframework.amqp.rabbit.annotation.EnableRabbit;
 import org.springframework.amqp.rabbit.config.RetryInterceptorBuilder;
@@ -17,7 +18,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.retry.RetryPolicy;
 import org.springframework.core.retry.RetryTemplate;
-import org.springframework.dao.OptimisticLockingFailureException;
 
 import java.time.Duration;
 import java.util.HashMap;
@@ -102,7 +102,7 @@ public class RabbitMQConfig {
                 .maxRetries(3)
                 .backOffOptions(1000, 2.0, 5000)
                 .configureRetryPolicy(c ->
-                        c.includes(OptimisticLockingFailureException.class))
+                        c.includes(TransferProcessingException.class))
                 .build());
         return factory;
     }

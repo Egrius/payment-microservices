@@ -1,4 +1,4 @@
-package by.Egrius.auth_server.dto;
+package by.Egrius.auth_server.dto.response;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.AllArgsConstructor;

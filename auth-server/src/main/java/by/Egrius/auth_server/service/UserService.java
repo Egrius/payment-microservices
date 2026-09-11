@@ -4,6 +4,7 @@ import by.Egrius.auth_server.dto.user.UserCreateDto;
 import by.Egrius.auth_server.dto.user.UserReadDto;
 import by.Egrius.auth_server.dto.user.UserUpdateDto;
 import by.Egrius.auth_server.entity.User;
+import by.Egrius.auth_server.exception.UserEmailAlreadyExistsException;
 import by.Egrius.auth_server.exception.UserNotFoundException;
 import by.Egrius.auth_server.mapper.UserMapper;
 import by.Egrius.auth_server.repository.UserRepository;
@@ -25,7 +26,7 @@ public class UserService {
     @Transactional
     public UserReadDto createUser(UserCreateDto dto) {
         if (userRepository.existsByEmail(dto.email())) {
-            throw new RuntimeException("User with email %s already exists".formatted(dto.email()));
+            throw new UserEmailAlreadyExistsException(dto.email());
         }
 
         User user = User.builder()

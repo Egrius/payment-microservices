@@ -1,28 +1,34 @@
 package by.egrius.payment_service.controller.api;
 
 import by.egrius.payment_service.annotation.CurrentUser;
+import by.egrius.payment_service.dto.transfer.AdminSenderLeaderboardDto;
 import by.egrius.payment_service.dto.transfer.TransferCreateDto;
 import by.egrius.payment_service.dto.transfer.TransferReadDto;
 import by.egrius.payment_service.dto.user.CurrentUserDto;
 import by.egrius.payment_service.service.TransferService;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
+import java.util.List;
 import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/transfers")
 @RequiredArgsConstructor
+@Validated
 public class TransferController {
 
     private final TransferService transferService;
 
-    @PostMapping("/create")
+    @PostMapping
     public ResponseEntity<TransferReadDto> createTransfer(@CurrentUser CurrentUserDto currentUserDto,
-                                                          @Validated @RequestBody TransferCreateDto createDto) {
+                                                          @Valid @RequestBody TransferCreateDto createDto) {
 
         TransferReadDto transfer = transferService.createTransfer(createDto, currentUserDto.publicId());
 
@@ -31,12 +37,18 @@ public class TransferController {
                 .body(transfer);
     }
 
-
-    // Add caching
     @GetMapping("/{transfer-public-id}")
     public TransferReadDto getTransferStatus(@PathVariable("transfer-public-id") UUID transferId,
                                              @CurrentUser CurrentUserDto currentUserDto) {
 
         return transferService.getTransferStatus(transferId, currentUserDto.publicId());
+    }
+
+    @GetMapping("/admin/leaderboard")
+    public List<AdminSenderLeaderboardDto> getSenderLeaderboard(
+            @RequestParam(defaultValue = "10") @Min(1) @Max(1000) int leaderboardLimit,
+            @RequestParam(defaultValue = "30") @Min(1) int daysCount
+    ) {
+        return transferService.getSenderLeaderboard(leaderboardLimit, daysCount);
     }
 }

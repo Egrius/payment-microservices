@@ -1,4 +1,4 @@
-package by.Egrius.notification_service.dto;
+package by.Egrius.notification_service.dto.response;
 
 import java.util.UUID;
 

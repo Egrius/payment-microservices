@@ -9,6 +9,5 @@ public enum RoleName {
         this.abbr = abbr;
     }
 
-
     public String getAbbr() {return abbr;}
 }

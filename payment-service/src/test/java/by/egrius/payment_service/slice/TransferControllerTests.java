@@ -117,7 +117,7 @@ class TransferControllerTests {
         when(transferService.createTransfer(any(TransferCreateDto.class), eq(userId)))
                 .thenReturn(responseDto);
 
-        mockMvc.perform(post("/api/transfers/create")
+        mockMvc.perform(post("/api/transfers")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(createDto)))
                 .andExpect(status().isCreated())
@@ -137,7 +137,7 @@ class TransferControllerTests {
                 BigDecimal.valueOf(150L)
         );
 
-        mockMvc.perform(post("/api/transfers/create")
+        mockMvc.perform(post("/api/transfers")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(invalidDto)))
                 .andExpect(status().isBadRequest())
@@ -152,7 +152,7 @@ class TransferControllerTests {
                 BigDecimal.valueOf(150L)
         );
 
-        mockMvc.perform(post("/api/transfers/create")
+        mockMvc.perform(post("/api/transfers")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(invalidDto)))
                 .andExpect(status().isBadRequest())
@@ -167,7 +167,7 @@ class TransferControllerTests {
                 BigDecimal.valueOf(-100L)
         );
 
-        mockMvc.perform(post("/api/transfers/create")
+        mockMvc.perform(post("/api/transfers")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(invalidDto)))
                 .andExpect(status().isBadRequest())
@@ -182,7 +182,7 @@ class TransferControllerTests {
                 BigDecimal.ZERO
         );
 
-        mockMvc.perform(post("/api/transfers/create")
+        mockMvc.perform(post("/api/transfers")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(invalidDto)))
                 .andExpect(status().isBadRequest())

@@ -15,6 +15,12 @@ logging:
     org.springframework.web.client: DEBUG
     org.springframework.web: DEBUG
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "health"
+
 spring:
   application:
     name: auth-server
@@ -22,6 +28,11 @@ spring:
   security:
     oauth2:
       authorizationserver:
+        client:
+          payment-service:
+            token:
+              access-token-time-to-live: ${ACCESS_TOKEN_TTL:1h}
+              refresh-token-time-to-live: ${REFRESH_TOKEN_TTL:3d}
         jwt:
           jwk-source:
             key-store:

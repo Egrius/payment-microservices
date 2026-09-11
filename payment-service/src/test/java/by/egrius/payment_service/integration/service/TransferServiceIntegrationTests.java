@@ -3,13 +3,12 @@ package by.egrius.payment_service.integration.service;
 import by.egrius.payment_service.dto.account.AccountCreateDto;
 import by.egrius.payment_service.dto.account.AccountReadDto;
 import by.egrius.payment_service.dto.transfer.TransferCreateDto;
-import by.egrius.payment_service.dto.transfer.TransferReadDto;
 import by.egrius.payment_service.entity.Account;
-import by.egrius.payment_service.entity.TransferStatus;
 import by.egrius.payment_service.context.ServiceIntegrationTestContext;
 import by.egrius.payment_service.exception.payment_service.SameAccountTransferException;
 import by.egrius.payment_service.exception.payment_service.TransferNotFoundException;
 import by.egrius.payment_service.integration.config.BaseIntegrationTest;
+import by.egrius.payment_service.integration.config.TestCacheConfig;
 import by.egrius.payment_service.repository.AccountRepository;
 import by.egrius.payment_service.service.AccountService;
 import by.egrius.payment_service.service.TransferService;
@@ -17,6 +16,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.test.context.ActiveProfiles;
 
 import java.math.BigDecimal;
 import java.util.UUID;
@@ -24,10 +25,12 @@ import java.util.UUID;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 
 
+@ActiveProfiles("test")
 @SpringBootTest(
         classes = ServiceIntegrationTestContext.class,
         webEnvironment = SpringBootTest.WebEnvironment.NONE
 )
+@Import(TestCacheConfig.class)
 class TransferServiceIntegrationTests extends BaseIntegrationTest {
 
     @Autowired
@@ -54,22 +57,6 @@ class TransferServiceIntegrationTests extends BaseIntegrationTest {
         accountRepository.save(from);
     }
 
-    private TransferReadDto waitForTransferProcessing(UUID transferId, UUID userId, int maxAttempts, long sleepMillis) {
-        TransferReadDto status = null;
-        for (int i = 0; i < maxAttempts; i++) {
-            status = transferService.getTransferStatus(transferId, userId);
-            if (status.status() != TransferStatus.PENDING) {
-                break;
-            }
-            try {
-                Thread.sleep(sleepMillis);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                break;
-            }
-        }
-        return status;
-    }
 
     @Test
     void shouldThrowExceptionWhenFromAndToAccountsAreSame() {

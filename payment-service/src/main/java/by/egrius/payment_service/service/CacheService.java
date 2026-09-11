@@ -22,11 +22,17 @@ public class CacheService {
             if (cache != null) {
                 Cache.ValueWrapper wrapper = cache.get(key);
                 if (wrapper != null) {
+
+                    Object value = wrapper.get();
+                    if (value == null) {
+                        return null;
+                    }
+
                     try {
-                        return type.cast(wrapper.get());
+                        return type.cast(value);
 
                     } catch (ClassCastException e) {
-                        String actualType = wrapper.get().getClass().getName();
+                        String actualType = value.getClass().getName();
                         String message = String.format(
                                 "Cache type mismatch: expected '%s', found '%s'. Cache: %s, Key: %s",
                                 type.getName(), actualType, cacheName, key
@@ -57,12 +63,17 @@ public class CacheService {
     }
 
     public void putAccountsCollection(String cacheName, String publicUserId, Iterable<AccountReadDto> accountReadDtos) {
-        Cache cache = cacheManager.getCache("accounts");
-        if(cache != null) {
-            for(AccountReadDto acc : accountReadDtos) {
-                String key = generateKey(publicUserId, acc.publicId().toString());
-                cache.put(key, acc);
+        try {
+            Cache cache = cacheManager.getCache(cacheName);
+            if (cache != null) {
+                for (AccountReadDto acc : accountReadDtos) {
+                    String key = generateKey(publicUserId, acc.publicId().toString());
+                    cache.put(key, acc);
+                }
             }
+
+        } catch (Exception e) {
+                log.warn("Failed to put accounts collection: cacheName={}, userId={}", cacheName, publicUserId, e);
         }
     }
 
@@ -87,7 +98,9 @@ public class CacheService {
             }
             Cache.ValueWrapper wrapper = cache.get(key);
             return wrapper != null && wrapper.get() != null;
+
         } catch (Exception e) {
+            log.warn("Cache exists check failed: cacheName={}, key={}", cacheName, key, e);
             return false;
         }
     }

@@ -4,8 +4,8 @@ import by.egrius.payment_service.argument_resolver.CurrentUserArgumentResolver;
 import by.egrius.payment_service.controller.api.AccountController;
 import by.egrius.payment_service.dto.account.AccountCreateDto;
 import by.egrius.payment_service.dto.account.AccountReadDto;
+import by.egrius.payment_service.exception.ResourceNotFoundException;
 import by.egrius.payment_service.exception.payment_service.AccountNotFoundException;
-import by.egrius.payment_service.exception.payment_service.AccountAccessDeniedException;
 import by.egrius.payment_service.service.AccountService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -96,8 +96,7 @@ class AccountControllerTests {
         when(accountService.getAllAccountsByUserId(any(UUID.class)))
                 .thenReturn(List.of(account1, account2));
 
-        mockMvc.perform(get("/api/accounts")
-                        .requestAttr("currentUser", userId)) // или через SecurityContext
+        mockMvc.perform(get("/api/accounts"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(2))
                 .andExpect(jsonPath("$[0].publicId").value(accountId.toString()))
@@ -112,10 +111,9 @@ class AccountControllerTests {
         when(accountService.createAccount(any(UUID.class), any(AccountCreateDto.class)))
                 .thenReturn(responseDto);
 
-        mockMvc.perform(post("/api/accounts/create")
+        mockMvc.perform(post("/api/accounts")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(createDto))
-                        .requestAttr("currentUser", userId))
+                        .content(objectMapper.writeValueAsString(createDto)))
                 .andExpect(status().isCreated())
                 .andExpect(header().string("Location", "/api/accounts/" + accountId))
                 .andExpect(jsonPath("$.publicId").value(accountId.toString()))
@@ -124,12 +122,11 @@ class AccountControllerTests {
 
     @Test
     void shouldReturn400WhenCreateAccountWithInvalidData() throws Exception {
-        AccountCreateDto invalidDto = new AccountCreateDto("", ""); // пустые поля
+        AccountCreateDto invalidDto = new AccountCreateDto("", "");
 
-        mockMvc.perform(post("/api/accounts/create")
+        mockMvc.perform(post("/api/accounts")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(invalidDto))
-                        .requestAttr("currentUser", userId))
+                        .content(objectMapper.writeValueAsString(invalidDto)))
                 .andExpect(status().isBadRequest());
     }
 
@@ -140,8 +137,7 @@ class AccountControllerTests {
         when(accountService.getAccountByPublicId(eq(accountId), any(UUID.class)))
                 .thenReturn(accountDto);
 
-        mockMvc.perform(get("/api/accounts/{public-account-id}", accountId)
-                        .requestAttr("currentUser", userId))
+        mockMvc.perform(get("/api/accounts/{public-account-id}", accountId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.publicId").value(accountId.toString()))
                 .andExpect(jsonPath("$.name").value("Main"));
@@ -152,49 +148,36 @@ class AccountControllerTests {
         when(accountService.getAccountByPublicId(eq(accountId), any(UUID.class)))
                 .thenThrow(new AccountNotFoundException(accountId));
 
-        mockMvc.perform(get("/api/accounts/{public-account-id}", accountId)
-                        .requestAttr("currentUser", userId))
+        mockMvc.perform(get("/api/accounts/{public-account-id}", accountId))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("ACCOUNT_NOT_FOUND"));
     }
 
     @Test
-    void shouldReturn403WhenAccessDenied() throws Exception {
+    void shouldReturn404WhenAccessingOtherUserAccount() throws Exception {
         when(accountService.getAccountByPublicId(eq(accountId), any(UUID.class)))
-                .thenThrow(new AccountAccessDeniedException(accountId, userId));
+                .thenThrow(new ResourceNotFoundException(
+                        String.format("Account with id '%s' not found", accountId)));
 
-        mockMvc.perform(get("/api/accounts/{public-account-id}", accountId)
-                        .requestAttr("currentUser", userId))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value("ACCESS_DENIED"));
+        mockMvc.perform(get("/api/accounts/{public-account-id}", accountId))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"));
     }
 
     @Test
     void shouldDeleteAccount() throws Exception {
-        mockMvc.perform(delete("/api/accounts/{public-account-id}", accountId)
-                        .requestAttr("currentUser", userId))
+        mockMvc.perform(delete("/api/accounts/{public-account-id}", accountId))
                 .andExpect(status().isNoContent());
     }
 
     @Test
-    void shouldReturn404WhenDeletingNonExistentAccount() throws Exception {
-        doThrow(new AccountNotFoundException(accountId))
+    void shouldReturn404WhenDeletingOtherUserAccount() throws Exception {
+        doThrow(new ResourceNotFoundException(
+                String.format("Account with id '%s' not found", accountId)))
                 .when(accountService).deleteAccount(eq(accountId), any(UUID.class));
 
-        mockMvc.perform(delete("/api/accounts/{public-account-id}", accountId)
-                        .requestAttr("currentUser", userId))
+        mockMvc.perform(delete("/api/accounts/{public-account-id}", accountId))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.code").value("ACCOUNT_NOT_FOUND"));
-    }
-
-    @Test
-    void shouldReturn403WhenDeletingAccountWithoutAccess() throws Exception {
-        doThrow(new AccountAccessDeniedException(accountId, userId))
-                .when(accountService).deleteAccount(eq(accountId), any(UUID.class));
-
-        mockMvc.perform(delete("/api/accounts/{public-account-id}", accountId)
-                        .requestAttr("currentUser", userId))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value("ACCESS_DENIED"));
+                .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"));
     }
 }

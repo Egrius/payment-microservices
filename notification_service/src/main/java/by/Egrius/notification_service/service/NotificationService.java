@@ -52,7 +52,9 @@ public class NotificationService {
         notificationRepository.save(notification);
     }
 
-    // No transaction bc we call .send() BEFORE actual commit + we want to send at least something before fail
+    // No transaction bc we want to send at least something before fail
+    // TransactionalTemplate could be used for each batch to stay consistent, but I decided to keep it simple
+    // since it's just a notification
     public void sendAllPendingNotificationsToUser(String userId) {
         List<Notification> pendingNotifications = notificationRepository
                 .findAllByStatusAndUserIdWithDateOrdering(UUID.fromString(userId), NotificationStatus.PENDING);
@@ -61,7 +63,7 @@ public class NotificationService {
 
         SseEmitter emitter = sseEmitterStorageService.get(userId);
         if(emitter == null) {
-            log.warn("No emitters were found for userId {}", userId);
+            log.debug("No emitter for user {} - pending will be sent on next connect", userId);
             return;
         }
 

@@ -8,7 +8,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Repository
-public interface UserRepository extends JpaRepository<User, Long> { // ← Long — это тип id
+public interface UserRepository extends JpaRepository<User, Long> {
 
     Optional<User> findByPublicId(UUID publicId);
 

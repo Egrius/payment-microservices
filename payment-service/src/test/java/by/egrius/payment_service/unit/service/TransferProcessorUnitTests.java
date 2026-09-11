@@ -9,11 +9,11 @@ import by.egrius.payment_service.mapper.TransferMapper;
 import by.egrius.payment_service.repository.AccountRepository;
 import by.egrius.payment_service.repository.TransferRepository;
 import by.egrius.payment_service.service.CacheService;
+import by.egrius.payment_service.service.TransferFailureHandler;
 import by.egrius.payment_service.service.TransferProcessor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -26,9 +26,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -46,6 +44,12 @@ class TransferProcessorUnitTests {
     @Mock
     private CacheService cacheService;
 
+    @Mock
+    private TransferFailureHandler transferFailureHandler;
+
+    @Mock
+    private RabbitTemplate rabbitTemplate;
+
     @InjectMocks
     private TransferProcessor transferProcessor;
 
@@ -53,6 +57,7 @@ class TransferProcessorUnitTests {
     private static final long TO_ACCOUNT_ID = 2L;
     private static final long TRANSFER_ID = 100L;
 
+    private UUID userId;
     private Account fromAccount;
     private Account toAccount;
     private Transfer transfer;
@@ -60,7 +65,7 @@ class TransferProcessorUnitTests {
 
     @BeforeEach
     void setUp() {
-        UUID userId = UUID.randomUUID();
+        userId = UUID.randomUUID();
 
         fromAccount = Account.builder()
                 .id(FROM_ACCOUNT_ID)
@@ -102,31 +107,40 @@ class TransferProcessorUnitTests {
                 .thenReturn(Optional.of(fromAccount));
         when(accountRepository.findByPublicIdPessimistic(TO_ACCOUNT_ID))
                 .thenReturn(Optional.of(toAccount));
-
-        when(transferMapper.mapToReadDto(any(Transfer.class))).thenAnswer(invocation -> {
-            Transfer t = invocation.getArgument(0);
-            return new TransferReadDto(
-                    t.getPublicId(),
-                    t.getFromAccount().getPublicId(),
-                    t.getToAccount().getPublicId(),
-                    t.getAmount(),
-                    t.getStatus(),
-                    t.getCreatedAt(),
-                    t.getProcessedAt(),
-                    t.getReason()
-            );
-        });
+        when(transferMapper.mapToReadDto(transfer)).thenReturn(toReadDto(transfer, TransferStatus.PENDING));
+        when(transferRepository.updateTransferStatus(eq(transfer.getPublicId()), eq(TransferStatus.COMPLETED), any(LocalDateTime.class)))
+                .thenReturn(1);
 
         transferProcessor.processTransfer(transferAddedEvent);
 
         assertThat(fromAccount.getBalance()).isEqualByComparingTo(BigDecimal.valueOf(900));
         assertThat(toAccount.getBalance()).isEqualByComparingTo(BigDecimal.valueOf(100));
-        assertThat(transfer.getStatus()).isEqualTo(TransferStatus.FAILED);
-        assertThat(transfer.getProcessedAt()).isNotNull();
 
         verify(accountRepository, times(1)).saveAll(anyList());
-        verify(transferRepository, times(1)).save(transfer);
+        verify(transferRepository, times(1))
+                .updateTransferStatus(eq(transfer.getPublicId()), eq(TransferStatus.COMPLETED), any(LocalDateTime.class));
+        verify(transferFailureHandler, never()).handle(anyLong(), anyString());
     }
+
+    @Test
+    void processTransfer_WhenCacheReturnsData_ShouldUseCacheAndNotCallRepository() {
+        TransferReadDto cached = toReadDto(transfer, TransferStatus.PENDING);
+
+        when(cacheService.get(anyString(), anyString(), any())).thenReturn(cached);
+        when(accountRepository.findByPublicIdPessimistic(FROM_ACCOUNT_ID))
+                .thenReturn(Optional.of(fromAccount));
+        when(accountRepository.findByPublicIdPessimistic(TO_ACCOUNT_ID))
+                .thenReturn(Optional.of(toAccount));
+        when(transferRepository.updateTransferStatus(eq(transfer.getPublicId()), eq(TransferStatus.COMPLETED), any(LocalDateTime.class)))
+                .thenReturn(1);
+
+        transferProcessor.processTransfer(transferAddedEvent);
+
+        verify(transferRepository, never()).findById(anyLong());
+        verify(transferMapper, never()).mapToReadDto(any(Transfer.class));
+        verify(cacheService, times(1)).get(anyString(), anyString(), any());
+    }
+
 
     @Test
     void processTransfer_WhenInsufficientBalance_ShouldFailTransfer() {
@@ -137,70 +151,93 @@ class TransferProcessorUnitTests {
                 .thenReturn(Optional.of(fromAccount));
         when(accountRepository.findByPublicIdPessimistic(TO_ACCOUNT_ID))
                 .thenReturn(Optional.of(toAccount));
-
-        when(transferMapper.mapToReadDto(any(Transfer.class))).thenAnswer(invocation -> {
-            Transfer t = invocation.getArgument(0);
-            return new TransferReadDto(
-                    t.getPublicId(),
-                    t.getFromAccount().getPublicId(),
-                    t.getToAccount().getPublicId(),
-                    t.getAmount(),
-                    t.getStatus(),
-                    t.getCreatedAt(),
-                    t.getProcessedAt(),
-                    t.getReason()
-            );
-        });
+        when(transferMapper.mapToReadDto(transfer)).thenReturn(toReadDto(transfer, TransferStatus.PENDING));
 
         transferProcessor.processTransfer(transferAddedEvent);
 
-        assertThat(transfer.getStatus()).isEqualTo(TransferStatus.FAILED);
-        assertThat(transfer.getReason()).contains("Insufficient funds");
-
         verify(accountRepository, never()).saveAll(anyList());
-        verify(transferRepository, times(1)).save(transfer);
+        verify(transferRepository, never()).updateTransferStatus(any(), any(), any());
+        verify(transferFailureHandler, times(1))
+                .handle(eq(TRANSFER_ID), contains("Insufficient funds"));
     }
 
+
     @Test
-    void processTransfer_WhenTransferNotFound_ShouldLogErrorAndReturn() {
+    void processTransfer_WhenTransferNotFound_ShouldHandleAsFailure() {
         when(cacheService.get(anyString(), anyString(), any())).thenReturn(null);
         when(transferRepository.findById(TRANSFER_ID)).thenReturn(Optional.empty());
 
         transferProcessor.processTransfer(transferAddedEvent);
 
-        verify(transferRepository, times(2)).findById(TRANSFER_ID);
+        verify(transferRepository, times(1)).findById(TRANSFER_ID);
         verify(accountRepository, never()).findByPublicIdPessimistic(anyLong());
+        verify(transferFailureHandler, times(1))
+                .handle(eq(TRANSFER_ID), contains("Internal error"));
     }
 
+
     @Test
-    void processTransfer_WhenExceptionDuringProcessing_ShouldSetTransferFailed() {
+    void processTransfer_WhenTransferAlreadyProcessed_ShouldNotChangeStatus() {
+        transfer.setStatus(TransferStatus.COMPLETED);
         when(cacheService.get(anyString(), anyString(), any())).thenReturn(null);
         when(transferRepository.findById(TRANSFER_ID)).thenReturn(Optional.of(transfer));
-        when(accountRepository.findByPublicIdPessimistic(FROM_ACCOUNT_ID))
-                .thenThrow(new RuntimeException("DB connection error"));
-
-        when(transferMapper.mapToReadDto(any(Transfer.class))).thenAnswer(invocation -> {
-            Transfer t = invocation.getArgument(0);
-            return new TransferReadDto(
-                    t.getPublicId(),
-                    t.getFromAccount().getPublicId(),
-                    t.getToAccount().getPublicId(),
-                    t.getAmount(),
-                    t.getStatus(),
-                    t.getCreatedAt(),
-                    t.getProcessedAt(),
-                    t.getReason()
-            );
-        });
+        when(transferMapper.mapToReadDto(transfer)).thenReturn(toReadDto(transfer, TransferStatus.COMPLETED));
 
         transferProcessor.processTransfer(transferAddedEvent);
 
-        ArgumentCaptor<Transfer> transferCaptor = ArgumentCaptor.forClass(Transfer.class);
-        verify(transferRepository, times(1)).save(transferCaptor.capture());
+        verify(accountRepository, never()).saveAll(anyList());
+        verify(transferRepository, never()).updateTransferStatus(any(), any(), any());
+        verify(transferFailureHandler, times(1))
+                .handle(eq(TRANSFER_ID), contains("already processed"));
+    }
 
-        Transfer savedTransfer = transferCaptor.getValue();
-        assertThat(savedTransfer.getStatus()).isEqualTo(TransferStatus.FAILED);
-        assertThat(savedTransfer.getReason()).contains("Internal error: DB connection error");
+
+    @Test
+    void processTransfer_WhenExceptionDuringProcessing_ShouldHandleAsFailure() {
+        when(cacheService.get(anyString(), anyString(), any())).thenReturn(null);
+        when(transferRepository.findById(TRANSFER_ID)).thenReturn(Optional.of(transfer));
+        when(transferMapper.mapToReadDto(transfer)).thenReturn(toReadDto(transfer, TransferStatus.PENDING));
+        when(accountRepository.findByPublicIdPessimistic(FROM_ACCOUNT_ID))
+                .thenThrow(new RuntimeException("DB connection error"));
+
+        transferProcessor.processTransfer(transferAddedEvent);
+
+        verify(transferFailureHandler, times(1))
+                .handle(eq(TRANSFER_ID), contains("Internal error: DB connection error"));
+        verify(transferRepository, never()).save(any(Transfer.class));
+    }
+
+    @Test
+    void processTransfer_WhenFirstAccountNotFound_ShouldHandleAsFailure() {
+        when(cacheService.get(anyString(), anyString(), any())).thenReturn(null);
+        when(transferRepository.findById(TRANSFER_ID)).thenReturn(Optional.of(transfer));
+        when(transferMapper.mapToReadDto(transfer)).thenReturn(toReadDto(transfer, TransferStatus.PENDING));
+        when(accountRepository.findByPublicIdPessimistic(FROM_ACCOUNT_ID))
+                .thenReturn(Optional.empty());
+
+        transferProcessor.processTransfer(transferAddedEvent);
+
+        verify(transferFailureHandler, times(1))
+                .handle(eq(TRANSFER_ID), contains("Internal error"));
+    }
+
+
+    @Test
+    void processTransfer_WhenOptimisticLockingFailure_ShouldHandleAsFailure() {
+        when(cacheService.get(anyString(), anyString(), any())).thenReturn(null);
+        when(transferRepository.findById(TRANSFER_ID)).thenReturn(Optional.of(transfer));
+        when(transferMapper.mapToReadDto(transfer)).thenReturn(toReadDto(transfer, TransferStatus.PENDING));
+        when(accountRepository.findByPublicIdPessimistic(FROM_ACCOUNT_ID))
+                .thenReturn(Optional.of(fromAccount));
+        when(accountRepository.findByPublicIdPessimistic(TO_ACCOUNT_ID))
+                .thenReturn(Optional.of(toAccount));
+        when(transferRepository.updateTransferStatus(any(), any(), any()))
+                .thenThrow(new OptimisticLockingFailureException("Optimistic lock"));
+
+        transferProcessor.processTransfer(transferAddedEvent);
+
+        verify(transferFailureHandler, times(1))
+                .handle(eq(TRANSFER_ID), contains("Internal error"));
     }
 
     @Test
@@ -209,23 +246,23 @@ class TransferProcessorUnitTests {
         long toId = 2L;
         long transferId = 200L;
 
-        Account firstAccount = Account.builder()
+        Account lowId = Account.builder()
                 .id(2L)
                 .publicId(UUID.randomUUID())
-                .balance(BigDecimal.valueOf(500))
+                .balance(BigDecimal.valueOf(0))
                 .build();
 
-        Account secondAccount = Account.builder()
+        Account highId = Account.builder()
                 .id(5L)
                 .publicId(UUID.randomUUID())
-                .balance(BigDecimal.valueOf(0))
+                .balance(BigDecimal.valueOf(500))
                 .build();
 
         Transfer testTransfer = Transfer.builder()
                 .id(transferId)
                 .publicId(UUID.randomUUID())
-                .fromAccount(fromAccount)
-                .toAccount(toAccount)
+                .fromAccount(highId)
+                .toAccount(lowId)
                 .amount(BigDecimal.valueOf(100))
                 .status(TransferStatus.PENDING)
                 .build();
@@ -240,22 +277,11 @@ class TransferProcessorUnitTests {
 
         when(cacheService.get(anyString(), anyString(), any())).thenReturn(null);
         when(transferRepository.findById(transferId)).thenReturn(Optional.of(testTransfer));
-        when(accountRepository.findByPublicIdPessimistic(2L)).thenReturn(Optional.of(firstAccount));
-        when(accountRepository.findByPublicIdPessimistic(5L)).thenReturn(Optional.of(secondAccount));
-
-        when(transferMapper.mapToReadDto(any(Transfer.class))).thenAnswer(invocation -> {
-            Transfer t = invocation.getArgument(0);
-            return new TransferReadDto(
-                    t.getPublicId(),
-                    t.getFromAccount().getPublicId(),
-                    t.getToAccount().getPublicId(),
-                    t.getAmount(),
-                    t.getStatus(),
-                    t.getCreatedAt(),
-                    t.getProcessedAt(),
-                    t.getReason()
-            );
-        });
+        when(transferMapper.mapToReadDto(testTransfer)).thenReturn(toReadDto(testTransfer, TransferStatus.PENDING));
+        when(accountRepository.findByPublicIdPessimistic(2L)).thenReturn(Optional.of(lowId));
+        when(accountRepository.findByPublicIdPessimistic(5L)).thenReturn(Optional.of(highId));
+        when(transferRepository.updateTransferStatus(eq(testTransfer.getPublicId()), eq(TransferStatus.COMPLETED), any(LocalDateTime.class)))
+                .thenReturn(1);
 
         transferProcessor.processTransfer(event);
 
@@ -269,13 +295,13 @@ class TransferProcessorUnitTests {
         long toId = 7L;
         long transferId = 300L;
 
-        Account firstAccount = Account.builder()
+        Account lowId = Account.builder()
                 .id(3L)
                 .publicId(UUID.randomUUID())
                 .balance(BigDecimal.valueOf(500))
                 .build();
 
-        Account secondAccount = Account.builder()
+        Account highId = Account.builder()
                 .id(7L)
                 .publicId(UUID.randomUUID())
                 .balance(BigDecimal.valueOf(0))
@@ -284,8 +310,8 @@ class TransferProcessorUnitTests {
         Transfer testTransfer = Transfer.builder()
                 .id(transferId)
                 .publicId(UUID.randomUUID())
-                .fromAccount(fromAccount)
-                .toAccount(toAccount)
+                .fromAccount(lowId)
+                .toAccount(highId)
                 .amount(BigDecimal.valueOf(100))
                 .status(TransferStatus.PENDING)
                 .build();
@@ -300,22 +326,11 @@ class TransferProcessorUnitTests {
 
         when(cacheService.get(anyString(), anyString(), any())).thenReturn(null);
         when(transferRepository.findById(transferId)).thenReturn(Optional.of(testTransfer));
-        when(accountRepository.findByPublicIdPessimistic(3L)).thenReturn(Optional.of(firstAccount));
-        when(accountRepository.findByPublicIdPessimistic(7L)).thenReturn(Optional.of(secondAccount));
-
-        when(transferMapper.mapToReadDto(any(Transfer.class))).thenAnswer(invocation -> {
-            Transfer t = invocation.getArgument(0);
-            return new TransferReadDto(
-                    t.getPublicId(),
-                    t.getFromAccount().getPublicId(),
-                    t.getToAccount().getPublicId(),
-                    t.getAmount(),
-                    t.getStatus(),
-                    t.getCreatedAt(),
-                    t.getProcessedAt(),
-                    t.getReason()
-            );
-        });
+        when(transferMapper.mapToReadDto(testTransfer)).thenReturn(toReadDto(testTransfer, TransferStatus.PENDING));
+        when(accountRepository.findByPublicIdPessimistic(3L)).thenReturn(Optional.of(lowId));
+        when(accountRepository.findByPublicIdPessimistic(7L)).thenReturn(Optional.of(highId));
+        when(transferRepository.updateTransferStatus(eq(testTransfer.getPublicId()), eq(TransferStatus.COMPLETED), any(LocalDateTime.class)))
+                .thenReturn(1);
 
         transferProcessor.processTransfer(event);
 
@@ -323,104 +338,16 @@ class TransferProcessorUnitTests {
         verify(accountRepository, times(1)).findByPublicIdPessimistic(7L);
     }
 
-    @Test
-    void processTransfer_WhenFirstAccountNotFound_ShouldHandleException() {
-        when(cacheService.get(anyString(), anyString(), any())).thenReturn(null);
-        when(transferRepository.findById(TRANSFER_ID)).thenReturn(Optional.of(transfer));
-        when(accountRepository.findByPublicIdPessimistic(FROM_ACCOUNT_ID))
-                .thenReturn(Optional.empty());
-
-        when(transferMapper.mapToReadDto(any(Transfer.class))).thenAnswer(invocation -> {
-            Transfer t = invocation.getArgument(0);
-            return new TransferReadDto(
-                    t.getPublicId(),
-                    t.getFromAccount().getPublicId(),
-                    t.getToAccount().getPublicId(),
-                    t.getAmount(),
-                    t.getStatus(),
-                    t.getCreatedAt(),
-                    t.getProcessedAt(),
-                    t.getReason()
-            );
-        });
-
-        transferProcessor.processTransfer(transferAddedEvent);
-
-        verify(transferRepository, atLeastOnce()).save(any(Transfer.class));
-
-        ArgumentCaptor<Transfer> transferCaptor = ArgumentCaptor.forClass(Transfer.class);
-        verify(transferRepository, atLeastOnce()).save(transferCaptor.capture());
-        assertThat(transferCaptor.getValue().getStatus()).isEqualTo(TransferStatus.FAILED);
-    }
-
-    @Test
-    void processTransfer_WhenTransferAlreadyProcessed_ShouldNotChangeStatus() {
-        transfer.setStatus(TransferStatus.COMPLETED);
-        when(cacheService.get(anyString(), anyString(), any())).thenReturn(null);
-        when(transferRepository.findById(TRANSFER_ID)).thenReturn(Optional.of(transfer));
-
-        transferProcessor.processTransfer(transferAddedEvent);
-
-        assertThat(transfer.getStatus()).isEqualTo(TransferStatus.COMPLETED);
-        verify(accountRepository, never()).saveAll(anyList());
-        verify(transferRepository, never()).save(transfer);
-    }
-
-    @Test
-    void processTransfer_WhenOptimisticLockingFailure_ShouldThrowException() {
-        when(cacheService.get(anyString(), anyString(), any())).thenReturn(null);
-        when(transferRepository.findById(TRANSFER_ID)).thenReturn(Optional.of(transfer));
-        when(accountRepository.findByPublicIdPessimistic(FROM_ACCOUNT_ID))
-                .thenReturn(Optional.of(fromAccount));
-        when(accountRepository.findByPublicIdPessimistic(TO_ACCOUNT_ID))
-                .thenReturn(Optional.of(toAccount));
-        when(transferRepository.updateTransferStatus(any(), any(), any()))
-                .thenThrow(new OptimisticLockingFailureException("Optimistic lock"));
-
-        when(transferMapper.mapToReadDto(any(Transfer.class))).thenAnswer(invocation -> {
-            Transfer t = invocation.getArgument(0);
-            return new TransferReadDto(
-                    t.getPublicId(),
-                    t.getFromAccount().getPublicId(),
-                    t.getToAccount().getPublicId(),
-                    t.getAmount(),
-                    t.getStatus(),
-                    t.getCreatedAt(),
-                    t.getProcessedAt(),
-                    t.getReason()
-            );
-        });
-
-        assertThatThrownBy(() -> transferProcessor.processTransfer(transferAddedEvent))
-                .isInstanceOf(OptimisticLockingFailureException.class);
-
-        verify(transferRepository, never()).save(any(Transfer.class));
-    }
-
-    @Test
-    void processTransfer_WhenCacheReturnsData_ShouldUseCacheAndNotCallRepository() {
-
-        TransferReadDto fromCacheTransferReadDto = new TransferReadDto(
-                transfer.getPublicId(),
-                transfer.getFromAccount().getPublicId(),
-                transfer.getToAccount().getPublicId(),
-                transfer.getAmount(),
-                transfer.getStatus(),
-                transfer.getCreatedAt(),
-                transfer.getProcessedAt(),
-                transfer.getReason()
+    private TransferReadDto toReadDto(Transfer t, TransferStatus status) {
+        return new TransferReadDto(
+                t.getPublicId(),
+                t.getFromAccount() != null ? t.getFromAccount().getPublicId() : null,
+                t.getToAccount() != null ? t.getToAccount().getPublicId() : null,
+                t.getAmount(),
+                status,
+                t.getCreatedAt(),
+                t.getProcessedAt(),
+                t.getReason()
         );
-
-        when(cacheService.get(anyString(), anyString(), any())).thenReturn(fromCacheTransferReadDto);
-
-        when(accountRepository.findByPublicIdPessimistic(FROM_ACCOUNT_ID))
-                .thenReturn(Optional.of(fromAccount));
-        when(accountRepository.findByPublicIdPessimistic(TO_ACCOUNT_ID))
-                .thenReturn(Optional.of(toAccount));
-
-        when(transferRepository.updateTransferStatus(eq(fromCacheTransferReadDto.publicId()), eq(TransferStatus.COMPLETED), any(LocalDateTime.class)))
-                .thenReturn(1);
-
-        transferProcessor.processTransfer(transferAddedEvent);
     }
 }
