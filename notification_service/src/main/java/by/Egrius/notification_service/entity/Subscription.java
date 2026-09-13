@@ -33,7 +33,7 @@ public class Subscription {
     private String message;
 
     @Column(name = "is_active", nullable = false)
-    private boolean isActive = true;
+    private boolean isActive;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false)
@@ -44,6 +44,7 @@ public class Subscription {
         this.publicUserId = publicUserId;
         this.userEmail = userEmail;
         this.message = message;
+        isActive = true;
     }
 
     @PrePersist

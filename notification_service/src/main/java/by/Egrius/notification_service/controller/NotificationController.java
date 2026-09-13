@@ -1,11 +1,8 @@
 package by.Egrius.notification_service.controller;
 
-import by.Egrius.notification_service.dto.subscription.SubscriptionCreateDto;
 import by.Egrius.notification_service.dto.subscription.SubscriptionReadDto;
 import by.Egrius.notification_service.exception.InvalidUserIdException;
-import by.Egrius.notification_service.service.NotificationService;
 import by.Egrius.notification_service.service.SubscriptionService;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -23,15 +20,15 @@ import java.util.UUID;
 public class NotificationController {
 
     private final SubscriptionService subscriptionService;
-    private final NotificationService notificationService;
 
     @PostMapping
-    public ResponseEntity<SubscriptionReadDto> createSubscription(
-            @Valid @RequestBody SubscriptionCreateDto createDto
-    ) {
+    public ResponseEntity<SubscriptionReadDto> createSubscription(@AuthenticationPrincipal Jwt jwt) {
+        UUID userId = extractUserId(jwt);
+        String email = extractEmail(jwt);
+
         return ResponseEntity
                 .status(HttpStatus.CREATED)
-                .body(subscriptionService.createSubscription(createDto));
+                .body(subscriptionService.createSubscription(userId, email));
     }
 
     @GetMapping
@@ -39,7 +36,7 @@ public class NotificationController {
         return subscriptionService.createSseForSubscription(extractUserId(jwt));
     }
 
-    @DeleteMapping(path = "/unsubscribe")
+    @DeleteMapping
     public ResponseEntity<Map<String, Boolean>> deleteSubscription(@AuthenticationPrincipal Jwt jwt) {
         boolean deleted = subscriptionService.unsubscribeAndDeleteSse(extractUserId(jwt).toString());
 
@@ -60,5 +57,13 @@ public class NotificationController {
         } catch (IllegalArgumentException e) {
             throw new InvalidUserIdException("public_id claim is not a valid UUID: " + publicId);
         }
+    }
+
+    private String extractEmail(Jwt jwt) {
+        String email = jwt.getClaimAsString("email");
+        if (email == null || email.isBlank()) {
+            throw new InvalidUserIdException("email claim is missing in token");
+        }
+        return email;
     }
 }

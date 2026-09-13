@@ -3,10 +3,9 @@ package by.Egrius.notification_service.config;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.oauth2.jwt.JwtDecoder;
-import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.web.SecurityFilterChain;
 
 @Configuration
@@ -23,9 +22,7 @@ public class SecurityConfig {
                                 .anyRequest().authenticated()
                 )
                 .oauth2ResourceServer(c ->
-                        c.jwt(jwtConfigurer -> jwtConfigurer
-                                .jwkSetUri("http://auth-server.local:9000/oauth2/jwks")
-                        )
+                        c.jwt(Customizer.withDefaults())
                 )
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)

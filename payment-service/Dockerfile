@@ -14,7 +14,6 @@ ENV DB_HOST=payment_db \
     DB_NAME=api_gateway_db \
     DB_USER=postgres \
     DB_PASSWORD=2Pg8_06Egr \
-    RABBIT_HOST=localhost \
     RABBIT_PORT=5672 \
     RABBIT_USER=guest \
     RABBIT_PASSWORD=guest \

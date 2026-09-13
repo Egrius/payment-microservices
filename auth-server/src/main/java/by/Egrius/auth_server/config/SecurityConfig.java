@@ -177,7 +177,7 @@ public class SecurityConfig {
                     paymentServiceHost, paymentServicePort
             );
 
-            RegisteredClient client = RegisteredClient.withId(UUID.randomUUID().toString())
+            RegisteredClient paymentClient = RegisteredClient.withId(UUID.randomUUID().toString())
                     .clientId("payment-service")
                     .clientSecret("{noop}payment-service-password")
                     .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
@@ -190,8 +190,9 @@ public class SecurityConfig {
                     .tokenSettings(tokenSettings())
                     .build();
 
-            repository.save(client);
+            repository.save(paymentClient);
         }
+
         return repository;
     }
 

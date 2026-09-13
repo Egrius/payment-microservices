@@ -33,6 +33,12 @@ public class SecurityConfig {
     @Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}")
     private String issuerUri;
 
+    @Value("${payment.service.host:payment-service.local}")
+    private String paymentServiceHost;
+
+    @Value("${payment.service.port:8080}")
+    private String paymentServicePort;
+
     @Autowired
     private ClientRegistrationRepository clientRegistrationRepository;
 
@@ -111,7 +117,12 @@ public class SecurityConfig {
         OidcClientInitiatedLogoutSuccessHandler oidcLogoutSuccessHandler =
                 new OidcClientInitiatedLogoutSuccessHandler(this.clientRegistrationRepository);
 
-        oidcLogoutSuccessHandler.setPostLogoutRedirectUri("http://api-gateway.local:8080/login");
+        String logoutUri = String.format(
+                "http://%s:%s/login",
+                paymentServiceHost, paymentServicePort
+        );
+
+        oidcLogoutSuccessHandler.setPostLogoutRedirectUri(logoutUri);
 
         return oidcLogoutSuccessHandler;
     }

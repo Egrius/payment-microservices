@@ -31,17 +31,14 @@ public class SubscriptionService {
     private static final long SSE_EMITTER_TIMEOUT = 0L;
 
     @Transactional
-    public SubscriptionReadDto createSubscription(SubscriptionCreateDto createDto) {
-
-        String userId = createDto.userId();
-
-        Subscription subscription = subscriptionRepository.findLatestActiveByUserId(UUID.fromString(userId))
+    public SubscriptionReadDto createSubscription(UUID userId, String userEmail) {
+        Subscription subscription = subscriptionRepository.findLatestActiveByUserId(userId)
                 .orElseGet(() -> new Subscription(
-                        UUID.fromString(createDto.userId()),
-                        createDto.userEmail(),
-                        createDto.message()
-                )
-        );
+                                userId,
+                                userEmail,
+                                "create subscription"
+                        )
+                );
 
         return subscriptionMapper.toReadDto(subscriptionRepository.save(subscription));
     }
