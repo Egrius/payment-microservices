@@ -58,7 +58,8 @@ spring:
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:api_gateway_db}
     username: ${DB_USER:postgres}
-    password: ${DB_PASSWORD:2Pg8_06Egr}
+    password: ${DB_PASSWORD:postgres}
+
     driver-class-name: org.postgresql.Driver
 
   data:

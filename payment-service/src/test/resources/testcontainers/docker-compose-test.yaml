@@ -4,8 +4,8 @@ services:
   payment_db:
     environment:
       - POSTGRES_DB=api_gateway_db
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=2Pg8_06Egr
+      - POSTGRES_USER=${DB_USER:-postgres}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-test}
 
     image: postgres:16-alpine
 
@@ -18,11 +18,11 @@ services:
   # DB for auth_server
   auth_db:
     hostname: auth_db
-    environment:
 
+    environment:
       - POSTGRES_DB=api_gateway_auth_server_db
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=2Pg8_06Egr
+      - POSTGRES_USER=${DB_USER:-postgres}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-test}
 
     image: postgres:16-alpine
     ports:

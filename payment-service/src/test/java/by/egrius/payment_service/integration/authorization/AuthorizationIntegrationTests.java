@@ -63,7 +63,7 @@ public class AuthorizationIntegrationTests {
     private static final String PAYMENT_DB_JDBC = "jdbc:postgresql://localhost:5435/api_gateway_db";
     private static final String AUTH_DB_JDBC = "jdbc:postgresql://localhost:5433/api_gateway_auth_server_db";
     private static final String DB_USER = "postgres";
-    private static final String DB_PASSWORD = "2Pg8_06Egr";
+    private static final String DB_PASSWORD = "test";
 
     @BeforeAll
      void startContainers() throws Exception {
@@ -78,7 +78,7 @@ public class AuthorizationIntegrationTests {
 
         System.out.println("Starting Docker Compose...");
         Process process = new ProcessBuilder(
-                "docker-compose",
+                "docker", "compose",
                 "-f", "src/test/resources/testcontainers/docker-compose-test.yaml",
                 "up", "-d"
         ).inheritIO().start();
@@ -260,17 +260,12 @@ public class AuthorizationIntegrationTests {
 
     @Test
     void shouldReturn401_WhenNoTokenProvided() {
-
         RestTemplate restTemplate = new RestTemplate();
-        try {
-            restTemplate.getForEntity(BASE_URL + "/api/accounts", String.class);
-        } catch (HttpClientErrorException.Unauthorized e) {
-            assertEquals(HttpStatus.UNAUTHORIZED, e.getStatusCode());
-            System.out.println("Got 401 as expected");
-
-            assertEquals(HttpStatus.UNAUTHORIZED, e.getStatusCode());
-        }
-
+        HttpClientErrorException.Unauthorized ex = assertThrows(
+                HttpClientErrorException.Unauthorized.class,
+                () -> restTemplate.getForEntity(BASE_URL + "/api/accounts", String.class)
+        );
+        assertEquals(HttpStatus.UNAUTHORIZED, ex.getStatusCode());
     }
 
     @Test
@@ -306,10 +301,7 @@ public class AuthorizationIntegrationTests {
             throw new RuntimeException("PostgreSQL Driver not found", e);
         }
 
-        String jdbcUrlAuthServer = "jdbc:postgresql://localhost:5433/api_gateway_auth_server_db";
-        String jdbcUrlPaymentService = "jdbc:postgresql://localhost:5435/api_gateway_db";
-        String user = "postgres";
-        String password = "2Pg8_06Egr";
+
 
         clearUsersFromAuthServerDB(AUTH_DB_JDBC, DB_USER, DB_PASSWORD);
         clearAccountsFromPaymentServiceDB(PAYMENT_DB_JDBC, DB_USER, DB_PASSWORD);
@@ -331,7 +323,7 @@ public class AuthorizationIntegrationTests {
         assertThat(userBRegistrationResponse.getStatusCode()).isEqualTo(HttpStatus.CREATED);
 
         // 4. Читаем пользователей из БД
-        try (Connection connection = DriverManager.getConnection(jdbcUrlAuthServer, user, password);
+        try (Connection connection = DriverManager.getConnection(AUTH_DB_JDBC, DB_USER, DB_PASSWORD);
              Statement statement = connection.createStatement();
              ResultSet resultSet = statement.executeQuery("SELECT public_id, username, email FROM users"))
         {
