@@ -2,6 +2,7 @@ package by.egrius.payment_service.service;
 
 import by.egrius.payment_service.dto.transfer.TransferReadDto;
 import by.egrius.payment_service.entity.Account;
+import by.egrius.payment_service.entity.Transfer;
 import by.egrius.payment_service.entity.TransferStatus;
 import by.egrius.payment_service.event.TransferAddedEvent;
 import by.egrius.payment_service.event.TransferProcessedEvent;
@@ -19,7 +20,6 @@ import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -68,19 +68,17 @@ public class TransferProcessor {
 
         String key = CacheService.generateKey(userId.toString(), transferPublicId.toString());
 
-        TransferReadDto transferReadDto = cacheService.get(TRANSFERS_CACHE_NAME, key, TransferReadDto.class);
+        Transfer transfer = transferRepository.findByIdPessimistic(transferId)
+                .orElseThrow(() -> new TransferNotFoundException(transferId));
 
-        if (transferReadDto == null) {
-
-            transferReadDto = transferMapper.mapToReadDto(transferRepository.findById(transferId)
-                    .orElseThrow(() -> new TransferNotFoundException(transferId)));
-
-            cacheService.put(TRANSFERS_CACHE_NAME, key, transferReadDto);
+        if (transfer.getStatus() == TransferStatus.COMPLETED) {
+            log.warn("Transfer {} already completed, skipping", transferId);
+            return;
         }
 
         // Check if already processed
-        if (transferReadDto.status() != TransferStatus.PENDING) {
-            throw new TransferAlreadyProcessedException(transferId, transferReadDto.status());
+        if (transfer.getStatus() != TransferStatus.PENDING) {
+            throw new TransferNotPendingException(transferId, transfer.getStatus());
         }
 
         // Block in order of id to prevent deadlock
@@ -98,41 +96,31 @@ public class TransferProcessor {
         Account toAccount = (secondId == toAccountId) ? second : first;
 
         // Check the balance
-        if (fromAccount.getBalance().compareTo(transferReadDto.amount()) < 0) {
-            throw new InsufficientFundsException(fromAccount.getBalance(), transferReadDto.amount());
+        if (fromAccount.getBalance().compareTo(transfer.getAmount()) < 0) {
+            throw new InsufficientFundsException(fromAccount.getBalance(), transfer.getAmount());
         }
 
         // Balance update
-        fromAccount.setBalance(fromAccount.getBalance().subtract(transferReadDto.amount()));
-        toAccount.setBalance(toAccount.getBalance().add(transferReadDto.amount()));
+        fromAccount.setBalance(fromAccount.getBalance().subtract(transfer.getAmount()));
+        toAccount.setBalance(toAccount.getBalance().add(transfer.getAmount()));
 
         LocalDateTime processedAt = LocalDateTime.now();
 
         // Save all changes
-        accountRepository.saveAll(List.of(fromAccount, toAccount));
-        int updated = transferRepository.updateTransferStatus(transferReadDto.publicId(), TransferStatus.COMPLETED, LocalDateTime.now());
+        transfer.setStatus(TransferStatus.COMPLETED);
+        transfer.setProcessedAt(processedAt);
 
-        if (updated > 0) {
-            TransferReadDto updatedTransferReadDto = new TransferReadDto(
-                    transferReadDto.publicId(),
-                    transferReadDto.toAccountPublicId(),
-                    transferReadDto.fromAccountPublicId(),
-                    transferReadDto.amount(),
-                    TransferStatus.COMPLETED,
-                    transferReadDto.createdAt(),
-                    processedAt,
-                    transferReadDto.reason()
-            );
-
-            cacheService.put(TRANSFERS_CACHE_NAME, key, updatedTransferReadDto);
+        TransferReadDto updatedTransferReadDto = transferMapper.mapToReadDto(transfer);
 
             // Sending notification after commit
-            TransactionUtils.afterCommit(() -> sendProcessedNotification(userId, updatedTransferReadDto));
+            TransactionUtils.afterCommit(() -> {
 
-            log.info("Transfer {} processed successfully", transferId);
-        } else {
-            throw new TransferUpdateException(transferReadDto.publicId());
-        }
+                cacheService.put(TRANSFERS_CACHE_NAME, key, updatedTransferReadDto);
+                sendProcessedNotification(userId, updatedTransferReadDto);
+
+
+                log.info("Transfer {} processed successfully", transferId);
+            });
     }
 
     // TODO outbox pattern, but may be excessive for such a project

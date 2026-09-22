@@ -198,7 +198,7 @@ public class TransferServiceCacheIntegrationTests extends BaseIntegrationTest {
         BigDecimal fromAccountBalanceBefore = fromAccount.getBalance();
         BigDecimal toAccountBalanceBefore = toAccount.getBalance();
 
-        TransferReadDto createdTransfer = transferService.createTransfer(createDto, fromUserId);
+        TransferReadDto createdTransfer = transferService.createTransfer(createDto, fromUserId, UUID.randomUUID());
 
         verify(cacheService, times(1)).put(any(), any(), any());
         verify(rabbitTemplate, times(1)).convertAndSend(anyString(), anyString(), any(Object.class));
@@ -237,7 +237,7 @@ public class TransferServiceCacheIntegrationTests extends BaseIntegrationTest {
 
         ArgumentCaptor<TransferAddedEvent> eventCaptor = ArgumentCaptor.forClass(TransferAddedEvent.class);
 
-        TransferReadDto createdTransfer = transferService.createTransfer(createDto, fromUserId);
+        TransferReadDto createdTransfer = transferService.createTransfer(createDto, fromUserId, UUID.randomUUID());
 
         verify(rabbitTemplate, times(1)).convertAndSend(
                 anyString(),
@@ -277,7 +277,7 @@ public class TransferServiceCacheIntegrationTests extends BaseIntegrationTest {
 
         ArgumentCaptor<TransferAddedEvent> eventCaptor = ArgumentCaptor.forClass(TransferAddedEvent.class);
 
-        TransferReadDto createdTransfer = transferService.createTransfer(createDto, fromUserId);
+        TransferReadDto createdTransfer = transferService.createTransfer(createDto, fromUserId, UUID.randomUUID());
 
         verify(rabbitTemplate, times(1)).convertAndSend(
                 anyString(),
@@ -320,7 +320,7 @@ public class TransferServiceCacheIntegrationTests extends BaseIntegrationTest {
 
         ArgumentCaptor<TransferAddedEvent> eventCaptor = ArgumentCaptor.forClass(TransferAddedEvent.class);
 
-        TransferReadDto createdTransfer = transferService.createTransfer(createDto, fromUserId);
+        TransferReadDto createdTransfer = transferService.createTransfer(createDto, fromUserId, UUID.randomUUID());
 
         verify(rabbitTemplate, times(1)).convertAndSend(
                 anyString(),
@@ -378,7 +378,7 @@ public class TransferServiceCacheIntegrationTests extends BaseIntegrationTest {
 
         ArgumentCaptor<TransferAddedEvent> eventCaptor = ArgumentCaptor.forClass(TransferAddedEvent.class);
 
-        TransferReadDto createdTransfer = transferService.createTransfer(createDto, fromUserId);
+        TransferReadDto createdTransfer = transferService.createTransfer(createDto, fromUserId, UUID.randomUUID());
 
         verify(rabbitTemplate, times(1)).convertAndSend(
                 anyString(),
@@ -423,7 +423,7 @@ public class TransferServiceCacheIntegrationTests extends BaseIntegrationTest {
 
         ArgumentCaptor<TransferAddedEvent> eventCaptor = ArgumentCaptor.forClass(TransferAddedEvent.class);
 
-        TransferReadDto createdTransfer = transferService.createTransfer(createDto, fromUserId);
+        TransferReadDto createdTransfer = transferService.createTransfer(createDto, fromUserId, UUID.randomUUID());
 
         verify(rabbitTemplate, times(1)).convertAndSend(
                 anyString(),
@@ -462,7 +462,7 @@ public class TransferServiceCacheIntegrationTests extends BaseIntegrationTest {
 
         ArgumentCaptor<TransferAddedEvent> eventCaptor = ArgumentCaptor.forClass(TransferAddedEvent.class);
 
-        TransferReadDto createdTransfer = transferService.createTransfer(createDto, fromUserId);
+        TransferReadDto createdTransfer = transferService.createTransfer(createDto, fromUserId, UUID.randomUUID());
 
         verify(rabbitTemplate, times(1)).convertAndSend(
                 anyString(),
@@ -496,7 +496,7 @@ public class TransferServiceCacheIntegrationTests extends BaseIntegrationTest {
 
         ArgumentCaptor<TransferAddedEvent> eventCaptor = ArgumentCaptor.forClass(TransferAddedEvent.class);
 
-        TransferReadDto createdTransfer = transferService.createTransfer(createDto, fromUserId);
+        TransferReadDto createdTransfer = transferService.createTransfer(createDto, fromUserId, UUID.randomUUID());
 
         verify(rabbitTemplate, times(1)).convertAndSend(
                 anyString(),
@@ -530,7 +530,7 @@ public class TransferServiceCacheIntegrationTests extends BaseIntegrationTest {
 
         ArgumentCaptor<TransferAddedEvent> eventCaptor = ArgumentCaptor.forClass(TransferAddedEvent.class);
 
-        TransferReadDto createdTransfer = transferService.createTransfer(createDto, fromUserId);
+        TransferReadDto createdTransfer = transferService.createTransfer(createDto, fromUserId, UUID.randomUUID());
 
         verify(rabbitTemplate, times(1)).convertAndSend(
                 anyString(),

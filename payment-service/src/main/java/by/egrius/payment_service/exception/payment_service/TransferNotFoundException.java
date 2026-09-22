@@ -2,7 +2,7 @@ package by.egrius.payment_service.exception.payment_service;
 
 import java.util.UUID;
 
-public class TransferNotFoundException extends PaymentServiceException {
+public class TransferNotFoundException extends RuntimeException {
     public TransferNotFoundException(String message) {
         super(message);
     }

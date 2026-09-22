@@ -32,8 +32,8 @@ public class CacheConfig {
     @Bean
     public RedisConnectionFactory lettuceConnectionFactory( @Value("${spring.data.redis.host}") String redisHost,
                                                             @Value("${spring.data.redis.port}") int redisPort) {
-        System.out.println("✅✅✅ Redis host: " + redisHost);
-        System.out.println("✅✅✅ Redis port: " + redisPort);
+        System.out.println("Redis host: " + redisHost);
+        System.out.println("Redis port: " + redisPort);
         return new LettuceConnectionFactory(new RedisStandaloneConfiguration(redisHost, redisPort));
     }
 

@@ -2,11 +2,11 @@ package by.egrius.payment_service.exception.payment_service;
 
 import by.egrius.payment_service.entity.TransferStatus;
 
-public class TransferAlreadyProcessedException extends PaymentServiceException {
+public class TransferNotPendingException extends RuntimeException {
     private final Long transferId;
     private final TransferStatus currentStatus;
 
-    public TransferAlreadyProcessedException(Long transferId, TransferStatus currentStatus) {
+    public TransferNotPendingException(Long transferId, TransferStatus currentStatus) {
         super(String.format("Transfer %d already processed with status: %s", transferId, currentStatus));
         this.transferId = transferId;
         this.currentStatus = currentStatus;

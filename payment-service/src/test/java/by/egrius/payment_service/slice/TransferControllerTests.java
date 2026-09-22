@@ -114,12 +114,13 @@ class TransferControllerTests {
                 null
         );
 
-        when(transferService.createTransfer(any(TransferCreateDto.class), eq(userId)))
+        when(transferService.createTransfer(any(TransferCreateDto.class), eq(userId), any(UUID.class)))
                 .thenReturn(responseDto);
 
         mockMvc.perform(post("/api/transfers")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(createDto)))
+                        .content(objectMapper.writeValueAsString(createDto))
+                        .header("Idempotency-Key", UUID.randomUUID()))
                 .andExpect(status().isCreated())
                 .andExpect(header().string("Location", "/api/transfers/" + transferId))
                 .andExpect(jsonPath("$.publicId").value(transferId.toString()))

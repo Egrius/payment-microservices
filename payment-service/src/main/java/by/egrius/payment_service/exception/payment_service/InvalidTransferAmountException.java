@@ -2,7 +2,7 @@ package by.egrius.payment_service.exception.payment_service;
 
 import java.math.BigDecimal;
 
-public class InvalidTransferAmountException extends PaymentServiceException {
+public class InvalidTransferAmountException extends RuntimeException {
     private final BigDecimal amount;
 
     public InvalidTransferAmountException(String message) {

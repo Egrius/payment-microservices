@@ -112,7 +112,7 @@ class TransferServiceUnitTests {
                 .thenReturn(Optional.empty());
 
         
-        assertThatThrownBy(() -> transferService.createTransfer(createDto, userPublicId))
+        assertThatThrownBy(() -> transferService.createTransfer(createDto, userPublicId, UUID.randomUUID()))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("'from account' does not exist");
 
@@ -129,7 +129,7 @@ class TransferServiceUnitTests {
                 .thenReturn(Optional.empty());
 
         
-        assertThatThrownBy(() -> transferService.createTransfer(createDto, userPublicId))
+        assertThatThrownBy(() -> transferService.createTransfer(createDto, userPublicId, UUID.randomUUID()))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("'to account' does not exist");
 
@@ -146,7 +146,7 @@ class TransferServiceUnitTests {
         );
 
         
-        assertThatThrownBy(() -> transferService.createTransfer(invalidDto, userPublicId))
+        assertThatThrownBy(() -> transferService.createTransfer(invalidDto, userPublicId, UUID.randomUUID()))
                 .isInstanceOf(SameAccountTransferException.class);
 
         verify(accountRepository, never()).findByPublicIdAndUserId(any(), any());

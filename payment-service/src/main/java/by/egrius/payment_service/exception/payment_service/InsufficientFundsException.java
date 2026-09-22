@@ -2,7 +2,7 @@ package by.egrius.payment_service.exception.payment_service;
 
 import java.math.BigDecimal;
 
-public class InsufficientFundsException extends PaymentServiceException {
+public class InsufficientFundsException extends RuntimeException {
     private final BigDecimal available;
     private final BigDecimal requested;
 

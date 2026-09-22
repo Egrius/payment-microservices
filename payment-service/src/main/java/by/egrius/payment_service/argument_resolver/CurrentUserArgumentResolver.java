@@ -29,17 +29,17 @@ public class CurrentUserArgumentResolver implements HandlerMethodArgumentResolve
                                             NativeWebRequest webRequest,
                                             @Nullable WebDataBinderFactory binderFactory) throws Exception {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-
+        System.out.println("AUTH: " + authentication);
         if (authentication == null) {
             return null;
         }
 
         Object principal = authentication.getPrincipal();
-
+        System.out.println("PRINCIPAL: " + principal.getClass() + " = " + principal);
         if(!(principal instanceof Jwt jwt)) {
             return null;
         }
-
+        System.out.println("JWT CLAIMS: " + jwt.getClaims());
         return CurrentUserDto.fromJwt(jwt);
     }
 }

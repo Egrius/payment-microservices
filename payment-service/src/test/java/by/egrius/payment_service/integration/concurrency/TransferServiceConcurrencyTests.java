@@ -151,7 +151,7 @@ public class TransferServiceConcurrencyTests extends BaseIntegrationTest {
             futures.add(CompletableFuture.supplyAsync(() -> {
                 try {
                     startLatch.await();
-                    return transferService.createTransfer(transferCreateDto, fromUserPublicId);
+                    return transferService.createTransfer(transferCreateDto, fromUserPublicId, UUID.randomUUID());
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     throw new RuntimeException(e);
@@ -230,7 +230,7 @@ public class TransferServiceConcurrencyTests extends BaseIntegrationTest {
         futures.add(CompletableFuture.supplyAsync(() -> {
             try {
                 startLatch.await();
-                return transferService.createTransfer(firstTransferCreateDto, fromUserPublicId);
+                return transferService.createTransfer(firstTransferCreateDto, fromUserPublicId, UUID.randomUUID());
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 throw new RuntimeException(e);
@@ -243,7 +243,7 @@ public class TransferServiceConcurrencyTests extends BaseIntegrationTest {
         futures.add(CompletableFuture.supplyAsync(() -> {
             try {
                 startLatch.await();
-                return transferService.createTransfer(secondTransferCreateDto, toUserPublicId);
+                return transferService.createTransfer(secondTransferCreateDto, toUserPublicId, UUID.randomUUID());
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 throw new RuntimeException(e);
@@ -255,11 +255,6 @@ public class TransferServiceConcurrencyTests extends BaseIntegrationTest {
 
         startLatch.countDown();
         CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new)).join();
-
-        List<TransferReadDto> results = futures.stream()
-                .map(CompletableFuture::join)
-                .filter(Objects::nonNull)
-                .toList();
 
         boolean allProcessed = awaitLatch.await(60, TimeUnit.SECONDS);
         assertTrue(allProcessed, "Not all transfers were processed in time");
@@ -327,7 +322,7 @@ public class TransferServiceConcurrencyTests extends BaseIntegrationTest {
         futures.add(CompletableFuture.supplyAsync(() -> {
             try {
                 startLatch.await();
-                return transferService.createTransfer(transferCreateDto, fromUserPublicId);
+                return transferService.createTransfer(transferCreateDto, fromUserPublicId, UUID.randomUUID());
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 throw new RuntimeException(e);

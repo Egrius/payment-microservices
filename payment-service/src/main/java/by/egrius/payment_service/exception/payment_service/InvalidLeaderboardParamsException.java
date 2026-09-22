@@ -1,6 +1,6 @@
 package by.egrius.payment_service.exception.payment_service;
 
-public class InvalidLeaderboardParamsException extends PaymentServiceException {
+public class InvalidLeaderboardParamsException extends RuntimeException {
     private final Integer leaderboardLimit;
     private final Integer daysCount;
 

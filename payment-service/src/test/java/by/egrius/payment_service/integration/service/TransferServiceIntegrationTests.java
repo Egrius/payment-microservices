@@ -66,7 +66,7 @@ class TransferServiceIntegrationTests extends BaseIntegrationTest {
                 BigDecimal.TEN
         );
 
-        assertThatThrownBy(() -> transferService.createTransfer(createDto, userPublicId))
+        assertThatThrownBy(() -> transferService.createTransfer(createDto, userPublicId, UUID.randomUUID()))
                 .isInstanceOf(SameAccountTransferException.class);
     }
 
@@ -81,7 +81,7 @@ class TransferServiceIntegrationTests extends BaseIntegrationTest {
                 BigDecimal.TEN
         );
 
-        assertThatThrownBy(() -> transferService.createTransfer(createDto, userPublicId))
+        assertThatThrownBy(() -> transferService.createTransfer(createDto, userPublicId, UUID.randomUUID()))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("'from account' does not exist");
     }
@@ -95,7 +95,7 @@ class TransferServiceIntegrationTests extends BaseIntegrationTest {
                 BigDecimal.TEN
         );
 
-        assertThatThrownBy(() -> transferService.createTransfer(createDto, userPublicId))
+        assertThatThrownBy(() -> transferService.createTransfer(createDto, userPublicId, UUID.randomUUID()))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("'to account' does not exist");
     }

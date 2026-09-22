@@ -1,6 +1,6 @@
 package by.egrius.payment_service.exception.payment_service;
 
-public class TransferProcessingException extends PaymentServiceException {
+public class TransferProcessingException extends RuntimeException {
     private final Long transferId;
 
     public TransferProcessingException(Long transferId, String message) {

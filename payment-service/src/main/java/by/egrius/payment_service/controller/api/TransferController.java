@@ -28,9 +28,10 @@ public class TransferController {
 
     @PostMapping
     public ResponseEntity<TransferReadDto> createTransfer(@CurrentUser CurrentUserDto currentUserDto,
-                                                          @Valid @RequestBody TransferCreateDto createDto) {
+                                                          @Valid @RequestBody TransferCreateDto createDto,
+                                                          @RequestHeader("Idempotency-Key") UUID idempotencyKey) {
 
-        TransferReadDto transfer = transferService.createTransfer(createDto, currentUserDto.publicId());
+        TransferReadDto transfer = transferService.createTransfer(createDto, currentUserDto.publicId(), idempotencyKey);
 
         return ResponseEntity
                 .created(URI.create("/api/transfers/" + transfer.publicId()))

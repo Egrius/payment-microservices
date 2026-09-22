@@ -5,31 +5,27 @@ import org.springframework.boot.persistence.autoconfigure.EntityScan;
 import org.springframework.boot.security.autoconfigure.SecurityAutoConfiguration;
 import org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration;
 import org.springframework.boot.security.autoconfigure.web.reactive.ReactiveWebSecurityAutoConfiguration;
+import org.springframework.boot.security.autoconfigure.web.servlet.SecurityFilterAutoConfiguration;
 import org.springframework.boot.security.oauth2.client.autoconfigure.OAuth2ClientAutoConfiguration;
 import org.springframework.boot.security.oauth2.client.autoconfigure.reactive.ReactiveOAuth2ClientAutoConfiguration;
 import org.springframework.boot.security.oauth2.server.resource.autoconfigure.OAuth2ResourceServerAutoConfiguration;
 import org.springframework.boot.security.oauth2.server.resource.autoconfigure.reactive.ReactiveOAuth2ResourceServerAutoConfiguration;
-import org.springframework.boot.webmvc.autoconfigure.DispatcherServletAutoConfiguration;
-import org.springframework.boot.webmvc.autoconfigure.WebMvcAutoConfiguration;
-import org.springframework.context.annotation.*;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.FilterType;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
-
 
 @Configuration
 @EnableAutoConfiguration(exclude = {
         SecurityAutoConfiguration.class,
+        SecurityFilterAutoConfiguration.class,
         UserDetailsServiceAutoConfiguration.class,
-
         OAuth2ClientAutoConfiguration.class,
         OAuth2ResourceServerAutoConfiguration.class,
-
         ReactiveOAuth2ClientAutoConfiguration.class,
         ReactiveOAuth2ResourceServerAutoConfiguration.class,
-        ReactiveWebSecurityAutoConfiguration.class,
-
-        WebMvcAutoConfiguration.class,
-        DispatcherServletAutoConfiguration.class
+        ReactiveWebSecurityAutoConfiguration.class
 })
 @ComponentScan(
         basePackages = {
@@ -41,22 +37,20 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
                 "by.egrius.payment_service.entity",
                 "by.egrius.payment_service.dto",
                 "by.egrius.payment_service.exception",
-                "by.egrius.payment_service.exception.payment_service"
+                "by.egrius.payment_service.controller",
+                "by.egrius.payment_service.exception.handler",
+                "by.egrius.payment_service.argument_resolver"
         },
         excludeFilters = {
+                @ComponentScan.Filter(type = FilterType.REGEX, pattern = "by\\.egrius\\.payment_service\\.config\\..*"),
                 @ComponentScan.Filter(
                         type = FilterType.REGEX,
-                        pattern = "by\\.egrius\\.payment_service\\.config\\..*"
-                ),
-                @ComponentScan.Filter(
-                        type = FilterType.REGEX,
-                        pattern = "by\\.egrius\\.payment_service\\.controller\\..*"
+                        pattern = "by\\.egrius\\.payment_service\\.controller\\.oauth\\..*"
                 )
         }
 )
 @EntityScan(basePackages = "by.egrius.payment_service.entity")
 @EnableJpaRepositories(basePackages = "by.egrius.payment_service.repository")
 @EnableTransactionManagement
-public class ServiceIntegrationTestContext {
-
+public class WebIntegrationTestContext {
 }

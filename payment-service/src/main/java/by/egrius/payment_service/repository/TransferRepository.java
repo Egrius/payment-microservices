@@ -23,6 +23,11 @@ import java.util.UUID;
 public interface TransferRepository extends JpaRepository<Transfer, Long> {
 
     @Query("SELECT t FROM Transfer t " +
+            "WHERE t.id = :id")
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    Optional<Transfer> findByIdPessimistic(@Param("id") long id);
+
+    @Query("SELECT t FROM Transfer t " +
             "JOIN FETCH t.fromAccount fAcc " +
             "JOIN FETCH t.toAccount tAcc " +
             "WHERE t.publicId = :publicTransferId AND fAcc.userId = :publicUserId")
@@ -43,6 +48,12 @@ public interface TransferRepository extends JpaRepository<Transfer, Long> {
     @Modifying
     @Query("UPDATE Transfer t SET t.status = :status, t.processedAt = :processedAt WHERE t.publicId = :publicId AND t.status = 'PENDING'")
     int updateTransferStatus(@Param("publicId") UUID publicId,
+                             @Param("status") TransferStatus status,
+                             @Param("processedAt") LocalDateTime processedAt);
+
+    @Modifying
+    @Query("UPDATE Transfer t SET t.status = :status, t.processedAt = :processedAt WHERE t.id = :id AND t.status = 'PENDING'")
+    int updateTransferStatus(@Param("id") Long id,
                              @Param("status") TransferStatus status,
                              @Param("processedAt") LocalDateTime processedAt);
 

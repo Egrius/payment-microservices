@@ -2,7 +2,7 @@ package by.egrius.payment_service.exception.payment_service;
 
 import java.util.UUID;
 
-public class AccountAccessDeniedException extends PaymentServiceException {
+public class AccountAccessDeniedException extends RuntimeException {
     private final UUID accountId;
     private final UUID userId;
 
