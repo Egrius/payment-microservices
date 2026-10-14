@@ -4,7 +4,6 @@ import by.egrius.payment_service.dto.transfer.TransferReadDto;
 import by.egrius.payment_service.entity.TransferStatus;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.springframework.context.ApplicationEvent;
 
 import java.math.BigDecimal;
 import java.util.UUID;

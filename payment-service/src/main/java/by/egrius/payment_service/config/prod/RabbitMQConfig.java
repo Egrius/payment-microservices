@@ -1,7 +1,6 @@
 package by.egrius.payment_service.config.prod;
 
 import by.egrius.payment_service.event.TransferAddedEvent;
-import by.egrius.payment_service.exception.payment_service.TransferProcessingException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.core.*;
 import org.springframework.amqp.rabbit.annotation.EnableRabbit;

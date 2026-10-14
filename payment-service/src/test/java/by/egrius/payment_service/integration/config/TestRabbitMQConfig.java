@@ -1,29 +1,29 @@
-    package by.egrius.payment_service.integration.config;
+package by.egrius.payment_service.integration.config;
 
-    import by.egrius.payment_service.event.TransferAddedEvent;
-    import by.egrius.payment_service.event.TransferProcessedEvent;
-    import org.springframework.amqp.core.*;
-    import org.springframework.amqp.rabbit.annotation.EnableRabbit;
-    import org.springframework.amqp.rabbit.config.RetryInterceptorBuilder;
-    import org.springframework.amqp.rabbit.config.SimpleRabbitListenerContainerFactory;
-    import org.springframework.amqp.rabbit.connection.CachingConnectionFactory;
-    import org.springframework.amqp.rabbit.connection.ConnectionFactory;
-    import org.springframework.amqp.rabbit.core.RabbitTemplate;
-    import org.springframework.amqp.rabbit.listener.RabbitListenerContainerFactory;
-    import org.springframework.amqp.rabbit.retry.RejectAndDontRequeueRecoverer;
-    import org.springframework.amqp.support.converter.DefaultClassMapper;
-    import org.springframework.amqp.support.converter.JacksonJsonMessageConverter;
-    import org.springframework.amqp.support.converter.MessageConverter;
-    import org.springframework.boot.test.context.TestConfiguration;
-    import org.springframework.context.annotation.Bean;
-    import org.springframework.context.annotation.Primary;
-    import org.springframework.context.annotation.Profile;
-    import org.testcontainers.containers.GenericContainer;
-    import org.testcontainers.utility.DockerImageName;
+import by.egrius.payment_service.event.TransferAddedEvent;
+import by.egrius.payment_service.event.TransferProcessedEvent;
+import org.springframework.amqp.core.*;
+import org.springframework.amqp.rabbit.annotation.EnableRabbit;
+import org.springframework.amqp.rabbit.config.RetryInterceptorBuilder;
+import org.springframework.amqp.rabbit.config.SimpleRabbitListenerContainerFactory;
+import org.springframework.amqp.rabbit.connection.CachingConnectionFactory;
+import org.springframework.amqp.rabbit.connection.ConnectionFactory;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.amqp.rabbit.listener.RabbitListenerContainerFactory;
+import org.springframework.amqp.rabbit.retry.RejectAndDontRequeueRecoverer;
+import org.springframework.amqp.support.converter.DefaultClassMapper;
+import org.springframework.amqp.support.converter.JacksonJsonMessageConverter;
+import org.springframework.amqp.support.converter.MessageConverter;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
+import org.springframework.context.annotation.Profile;
+import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.utility.DockerImageName;
 
-    import java.time.Duration;
-    import java.util.HashMap;
-    import java.util.Map;
+import java.time.Duration;
+import java.util.HashMap;
+import java.util.Map;
 
 
 @Profile("test")

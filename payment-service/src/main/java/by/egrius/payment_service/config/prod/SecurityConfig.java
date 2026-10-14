@@ -24,8 +24,6 @@ import org.springframework.security.web.authentication.logout.LogoutSuccessHandl
 import org.springframework.security.web.csrf.HttpSessionCsrfTokenRepository;
 import org.springframework.security.web.session.HttpSessionEventPublisher;
 
-// http://api-gateway.local:8080/oauth2/authorization/auth-server
-
 @Profile(value = {"!integration", "!test"})
 @Configuration
 @EnableMethodSecurity

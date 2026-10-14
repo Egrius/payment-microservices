@@ -7,7 +7,6 @@ import by.egrius.payment_service.entity.Account;
 import by.egrius.payment_service.exception.ResourceNotFoundException;
 import by.egrius.payment_service.integration.config.BaseIntegrationTest;
 import by.egrius.payment_service.integration.config.TestCacheConfig;
-import by.egrius.payment_service.integration.config.TestRabbitMQConfig;
 import by.egrius.payment_service.repository.AccountRepository;
 import by.egrius.payment_service.service.AccountService;
 import org.junit.jupiter.api.BeforeEach;

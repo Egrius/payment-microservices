@@ -2,7 +2,6 @@ package by.egrius.payment_service.event;
 
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.springframework.context.ApplicationEvent;
 
 import java.io.Serializable;
 import java.util.UUID;
