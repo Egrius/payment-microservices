@@ -49,7 +49,11 @@ import static org.mockito.Mockito.verify;
         classes = ServiceIntegrationTestContext.class,
         webEnvironment = SpringBootTest.WebEnvironment.NONE
 )
-@Import({TestRabbitMQConfig.class, TestCacheConfig.class})
+@Import({
+        TestRabbitMQConfig.class,
+        TestCacheConfig.class,
+        TransferAddedEventInterceptor.class,
+        TestNotificationListener.class})
 public class TransferServiceConcurrencyTests extends BaseIntegrationTest {
     @Autowired
     private TransferService transferService;

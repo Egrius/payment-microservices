@@ -1,6 +1,5 @@
 package by.Egrius.notification_service.service;
 
-import by.Egrius.notification_service.dto.subscription.SubscriptionCreateDto;
 import by.Egrius.notification_service.dto.subscription.SubscriptionReadDto;
 import by.Egrius.notification_service.entity.Subscription;
 import by.Egrius.notification_service.event.TransferProcessedEvent;
@@ -90,7 +89,7 @@ public class SubscriptionService {
        if(subscription.isEmpty()) {
            // It may be desynchronized state when we have sse opened in the map, and there is no active subscription in DB
            sseEmitterStorageService.remove(userId);
-           throw  new RuntimeException("Could not find latest active subscription");
+           throw  new SubscriptionNotFoundException("Could not find latest active subscription");
        }
 
         int updated = subscriptionRepository.setSubscriptionStatus(subscription.get().getId(), false);

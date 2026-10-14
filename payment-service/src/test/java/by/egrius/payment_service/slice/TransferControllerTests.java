@@ -6,14 +6,17 @@ import by.egrius.payment_service.dto.transfer.TransferCreateDto;
 import by.egrius.payment_service.dto.transfer.TransferReadDto;
 import by.egrius.payment_service.entity.TransferStatus;
 import by.egrius.payment_service.exception.payment_service.TransferNotFoundException;
+import by.egrius.payment_service.repository.filter.TransferFilter;
 import by.egrius.payment_service.service.TransferService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.security.oauth2.client.autoconfigure.OAuth2ClientAutoConfiguration;
 import org.springframework.boot.security.oauth2.server.resource.autoconfigure.OAuth2ResourceServerAutoConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.*;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -30,8 +33,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -221,5 +226,160 @@ class TransferControllerTests {
         mockMvc.perform(get("/api/transfers/{transfer-public-id}", transferId))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("TRANSFER_NOT_FOUND"));
+    }
+
+// ---------- @ModelAttribute ----------
+
+    @Test
+    void shouldBindFilterFromQueryParams() throws Exception {
+        when(transferService.getTransfersByFilter(any(), any(), any()))
+                .thenReturn(Page.empty());
+
+        mockMvc.perform(get("/api/transfers")
+                .param("status", "COMPLETED")
+                .param("minAmount", "100")
+                .param("maxAmount", "500"))
+        .andExpect(status().isOk());
+
+        ArgumentCaptor<TransferFilter> captor = ArgumentCaptor.forClass(TransferFilter.class);
+
+        verify(transferService).getTransfersByFilter(any(), captor.capture(), any());
+
+        TransferFilter filter = captor.getValue();
+
+        assertThat(filter.status()).isEqualTo(TransferStatus.COMPLETED);
+        assertThat(filter.minAmount()).isEqualByComparingTo(BigDecimal.valueOf(100));
+        assertThat(filter.maxAmount()).isEqualByComparingTo(BigDecimal.valueOf(500));
+    }
+
+    @Test
+    void shouldPassNullFilterWhenNoParamsProvided() throws Exception {
+        when(transferService.getTransfersByFilter(any(), any(), any()))
+                .thenReturn(Page.empty());
+
+        mockMvc.perform(get("/api/transfers"))
+                .andExpect(status().isOk());
+
+        ArgumentCaptor<TransferFilter> captor = ArgumentCaptor.forClass(TransferFilter.class);
+
+        verify(transferService).getTransfersByFilter(any(), captor.capture(), any());
+
+        TransferFilter filter = captor.getValue();
+
+        assertThat(filter.status()).isNull();
+        assertThat(filter.fromDate()).isNull();
+        assertThat(filter.toDate()).isNull();
+        assertThat(filter.minAmount()).isNull();
+        assertThat(filter.maxAmount()).isNull();
+    }
+
+    // ---------- @PageableDefault ----------
+
+    @Test
+    void shouldUseDefaultPageableWhenNotProvided() throws Exception {
+        when(transferService.getTransfersByFilter(any(), any(), any()))
+                .thenReturn(Page.empty());
+
+        mockMvc.perform(get("/api/transfers"))
+                .andExpect(status().isOk());
+
+        ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
+
+        verify(transferService).getTransfersByFilter(any(), any(), captor.capture());
+
+        Pageable pageable = captor.getValue();
+
+        assertThat(pageable.getPageSize()).isEqualTo(20);
+        assertThat(pageable.getSort().getOrderFor("createdAt")).isNotNull();
+        assertThat(pageable.getSort().getOrderFor("createdAt").getDirection().isDescending()).isTrue();
+
+    }
+
+    @Test
+    void shouldUsePageableFromQueryParams() throws Exception {
+        when(transferService.getTransfersByFilter(any(), any(), any()))
+                .thenReturn(Page.empty());
+
+        mockMvc.perform(get("/api/transfers")
+                        .param("page", "2")
+                        .param("size", "50")
+                        .param("sort", "amount,desc"))
+                .andExpect(status().isOk());
+
+        ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
+        verify(transferService).getTransfersByFilter(any(), any(), captor.capture());
+
+        Pageable pageable = captor.getValue();
+        assertThat(pageable.getPageNumber()).isEqualTo(2);
+        assertThat(pageable.getPageSize()).isEqualTo(50);
+        assertThat(pageable.getSort().getOrderFor("amount").getDirection())
+                .isEqualTo(Sort.Direction.DESC);
+    }
+
+    @Test
+    void shouldBindMultipleSortParams() throws Exception {
+        when(transferService.getTransfersByFilter(any(), any(), any()))
+                .thenReturn(Page.empty());
+
+        mockMvc.perform(get("/api/transfers")
+                        .param("sort", "amount,desc")
+                        .param("sort", "createdAt,asc"))
+                .andExpect(status().isOk());
+
+        ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
+        verify(transferService).getTransfersByFilter(any(), any(), captor.capture());
+
+        Sort sort = captor.getValue().getSort();
+        assertThat(sort.getOrderFor("amount").getDirection()).isEqualTo(Sort.Direction.DESC);
+        assertThat(sort.getOrderFor("createdAt").getDirection()).isEqualTo(Sort.Direction.ASC);
+    }
+
+    // ---------- JSON ----------
+
+    @Test
+    void shouldReturnPageContentInJson() throws Exception {
+        TransferReadDto dto = new TransferReadDto(
+                UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
+                BigDecimal.TEN, TransferStatus.COMPLETED,
+                LocalDateTime.now(), null, null
+        );
+        Page<TransferReadDto> page = new PageImpl<>(List.of(dto), PageRequest.of(0, 20), 1);
+        when(transferService.getTransfersByFilter(any(), any(), any())).thenReturn(page);
+
+        mockMvc.perform(get("/api/transfers"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isArray())
+                .andExpect(jsonPath("$.content[0].publicId").value(dto.publicId().toString()))
+                .andExpect(jsonPath("$.content[0].amount").value(10));
+    }
+
+    @Test
+    void shouldReturnPaginationMetadata() throws Exception {
+        TransferReadDto dto = new TransferReadDto(
+                UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
+                BigDecimal.TEN, TransferStatus.COMPLETED,
+                LocalDateTime.now(), null, null
+        );
+
+        Page<TransferReadDto> page = new PageImpl<>(List.of(dto), PageRequest.of(0, 20), 100);
+        when(transferService.getTransfersByFilter(any(), any(), any())).thenReturn(page);
+
+        mockMvc.perform(get("/api/transfers"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(100))
+                .andExpect(jsonPath("$.totalPages").value(5))
+                .andExpect(jsonPath("$.number").value(0))
+                .andExpect(jsonPath("$.size").value(20));
+    }
+
+    @Test
+    void shouldReturnEmptyPageWhenNoTransfers() throws Exception {
+        when(transferService.getTransfersByFilter(any(), any(), any()))
+                .thenReturn(Page.empty());
+
+        mockMvc.perform(get("/api/transfers"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isEmpty())
+                .andExpect(jsonPath("$.totalElements").value(0));
     }
 }

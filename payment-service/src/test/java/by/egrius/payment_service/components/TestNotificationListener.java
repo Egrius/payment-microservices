@@ -26,7 +26,7 @@ public class TestNotificationListener {
 
     @RabbitListener(queues = "notification.queue")
     public void onTransferProcessed(TransferProcessedEvent event) {
-        log.info("📨 Received TransferProcessedEvent: transferId={}, status={}",
+        log.info("Received TransferProcessedEvent: transferId={}, status={}",
                 event.getTransferPublicId(), event.getStatus());
         events.add(event);
         receivedCount.incrementAndGet();

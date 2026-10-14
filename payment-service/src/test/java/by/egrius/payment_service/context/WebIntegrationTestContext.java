@@ -1,5 +1,6 @@
 package by.egrius.payment_service.context;
 
+import by.egrius.payment_service.config.prod.JacksonConfig;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.persistence.autoconfigure.EntityScan;
 import org.springframework.boot.security.autoconfigure.SecurityAutoConfiguration;
@@ -13,6 +14,7 @@ import org.springframework.boot.security.oauth2.server.resource.autoconfigure.re
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.FilterType;
+import org.springframework.context.annotation.Import;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 
@@ -52,5 +54,6 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 @EntityScan(basePackages = "by.egrius.payment_service.entity")
 @EnableJpaRepositories(basePackages = "by.egrius.payment_service.repository")
 @EnableTransactionManagement
+@Import(JacksonConfig.class)
 public class WebIntegrationTestContext {
 }

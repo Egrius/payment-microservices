@@ -4,7 +4,7 @@ import by.egrius.payment_service.dto.idempotency_key.IdempotencyKeyCreateDto;
 import by.egrius.payment_service.dto.idempotency_key.IdempotencyKeyReadDto;
 import by.egrius.payment_service.dto.transfer.TransferReadDto;
 import by.egrius.payment_service.entity.IdempotencyKey;
-import by.egrius.payment_service.exception.handler.ErrorResponse;
+import by.egrius.payment_service.dto.response.ErrorResponse;
 import by.egrius.payment_service.mapper.IdempotencyKeyMapper;
 import by.egrius.payment_service.repository.IdempotencyRepository;
 import lombok.RequiredArgsConstructor;
@@ -31,7 +31,7 @@ public class IdempotencyService {
                                           ErrorResponse errorResponse) {
 
         IdempotencyKey key = idempotencyRepository.findByValueAndUserId(idempotencyValue, userId)
-                .orElseThrow();
+                .orElseThrow(() -> new IllegalStateException("Idempotency Key not found for completion"));
 
         key.setResponseStatus(responseStatus);
         key.setResponseBody(transferReadDto);
@@ -53,7 +53,7 @@ public class IdempotencyService {
 
         IdempotencyKey key = idempotencyRepository
                 .findByValueAndUserId(createDto.value(), createDto.userId())
-                .orElseThrow(() -> new IllegalStateException("Key not found after tryInsert"));
+                .orElseThrow(() -> new IllegalStateException("Idempotency Key not found after tryInsert"));
 
         return new ReserveResult(idempotencyKeyMapper.toReadDto(key), inserted == 1);
     }

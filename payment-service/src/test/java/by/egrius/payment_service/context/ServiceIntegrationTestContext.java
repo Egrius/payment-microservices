@@ -1,5 +1,6 @@
 package by.egrius.payment_service.context;
 
+import by.egrius.payment_service.config.prod.JacksonConfig;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.persistence.autoconfigure.EntityScan;
 import org.springframework.boot.security.autoconfigure.SecurityAutoConfiguration;
@@ -33,7 +34,7 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 })
 @ComponentScan(
         basePackages = {
-                "by.egrius.payment_service.components",
+                //"by.egrius.payment_service.components",
                 "by.egrius.payment_service.service",
                 "by.egrius.payment_service.repository",
                 "by.egrius.payment_service.mapper",
@@ -57,6 +58,7 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 @EntityScan(basePackages = "by.egrius.payment_service.entity")
 @EnableJpaRepositories(basePackages = "by.egrius.payment_service.repository")
 @EnableTransactionManagement
+@Import(JacksonConfig.class)
 public class ServiceIntegrationTestContext {
 
 }

@@ -1,14 +1,13 @@
 package by.egrius.payment_service.entity;
 
 import by.egrius.payment_service.dto.transfer.TransferReadDto;
-import by.egrius.payment_service.exception.handler.ErrorResponse;
+import by.egrius.payment_service.dto.response.ErrorResponse;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
-import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;

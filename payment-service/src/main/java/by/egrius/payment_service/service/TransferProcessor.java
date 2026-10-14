@@ -115,7 +115,7 @@ public class TransferProcessor {
             // Sending notification after commit
             TransactionUtils.afterCommit(() -> {
 
-                cacheService.put(TRANSFERS_CACHE_NAME, key, updatedTransferReadDto);
+                cacheService.evict(TRANSFERS_CACHE_NAME, key);
                 sendProcessedNotification(userId, updatedTransferReadDto);
 
 

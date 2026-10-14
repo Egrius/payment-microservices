@@ -1,6 +1,5 @@
 package by.Egrius.notification_service.config;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.Customizer;
@@ -11,14 +10,19 @@ import org.springframework.security.web.SecurityFilterChain;
 @Configuration
 public class SecurityConfig {
 
-    @Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}")
-    private String issuerUri;
-
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) {
         return http
+                .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth ->
                         auth
+                                .requestMatchers(
+
+                                        "/swagger-ui/**",
+                                        "/swagger-ui.html",
+                                        "/v3/api-docs/**",
+                                        "/v3/api-docs.yaml"
+                                ).permitAll()
                                 .anyRequest().authenticated()
                 )
                 .oauth2ResourceServer(c ->
@@ -29,9 +33,4 @@ public class SecurityConfig {
                 )
                 .build();
     }
-
-//    @Bean
-//    public JwtDecoder jwtDecoder() {
-//        return NimbusJwtDecoder.withIssuerLocation(issuerUri).build();
-//    }
 }

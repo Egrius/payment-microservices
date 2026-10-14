@@ -1,0 +1,187 @@
+services:
+
+  # DB for payment_service
+  payment_db:
+    environment:
+      - POSTGRES_DB=${PAYMENT_DB_NAME}
+      - POSTGRES_USER=${PAYMENT_DB_USER}
+      - POSTGRES_PASSWORD=${PAYMENT_DB_PASSWORD}
+
+    image: postgres:16-alpine
+
+    ports:
+      - "5435:5432"
+
+    networks:
+      - app-network
+
+  # DB for auth_server
+  auth_db:
+    hostname: auth_db
+    environment:
+      - POSTGRES_DB=${AUTH_DB_NAME}
+      - POSTGRES_USER=${AUTH_DB_USER}
+      - POSTGRES_PASSWORD=${AUTH_DB_PASSWORD}
+
+
+
+    image: postgres:16-alpine
+    ports:
+      - "5433:5432"
+
+    networks:
+      - app-network
+
+    volumes:
+      -  auth_db_data:/var/lib/postgresql/data
+      - ./auth_server_schemas/oauth2-registered-client-schema.sql:/docker-entrypoint-initdb.d/01-oauth2-registered-client-schema.sql
+      - ./auth_server_schemas/oauth2-authorization-schema.sql:/docker-entrypoint-initdb.d/02-oauth2-authorization-schema.sql
+      - ./auth_server_schemas/oauth2-authorization-consent-schema.sql:/docker-entrypoint-initdb.d/03-oauth2-authorization-consent-schema.sql
+
+
+  notification_db:
+    environment:
+      - POSTGRES_DB=${NOTIFICATION_DB_NAME}
+      - POSTGRES_USER=${NOTIFICATION_DB_USER}
+      - POSTGRES_PASSWORD=${NOTIFICATION_DB_PASSWORD}
+
+    image: postgres:16-alpine
+
+    ports:
+      - "5436:5432"
+
+    networks:
+      - app-network
+
+# microservices
+
+  auth-server:
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://${AUTH_SERVER_HOST}:${AUTH_SERVER_PORT}/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    depends_on:
+      auth_db:
+        condition: service_started
+
+    environment:
+      - DB_HOST=${AUTH_DB_HOST}
+      - DB_PORT=${AUTH_DB_PORT}
+      - DB_NAME=${AUTH_DB_NAME}
+      - DB_USER=${AUTH_DB_USER}
+      - DB_PASSWORD=${AUTH_DB_PASSWORD}
+      - AUTH_SERVER_HOST=auth-server
+      - AUTH_SERVER_PORT=${AUTH_SERVER_PORT}
+      - AUTH_SERVER_ISSUER=${AUTH_SERVER_ISSUER}
+      - PAYMENT_SERVICE_HOST=${PAYMENT_SERVICE_HOST}
+      - PAYMENT_SERVICE_PORT=${PAYMENT_SERVICE_PORT}
+
+    build:
+      context: ../auth-server
+      dockerfile: Dockerfile
+
+    ports:
+      - "${AUTH_SERVER_PORT}:${AUTH_SERVER_PORT}"
+
+
+    networks:
+      - app-network
+
+  payment-service:
+    restart: on-failure
+
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://${PAYMENT_SERVICE_HOST}:${PAYMENT_SERVICE_PORT}/actuator/health" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+    depends_on:
+      auth-server:
+        condition: service_healthy
+
+    environment:
+      - DB_HOST=${PAYMENT_DB_HOST}
+      - DB_PORT=${PAYMENT_DB_PORT}
+      - DB_NAME=${PAYMENT_DB_NAME}
+      - DB_USER=${PAYMENT_DB_USER}
+      - DB_PASSWORD=${PAYMENT_DB_PASSWORD}
+      - RABBIT_HOST=${RABBIT_HOST}
+      - RABBIT_PORT=${RABBIT_PORT}
+      - RABBIT_USER=${RABBIT_USER}
+      - RABBIT_PASSWORD=${RABBIT_PASSWORD}
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
+      - AUTH_SERVER_HOST=auth-server
+      - AUTH_SERVER_PORT=${AUTH_SERVER_PORT}
+      - PAYMENT_SERVICE_HOST=payment-service
+      - PAYMENT_SERVICE_PORT=${PAYMENT_SERVICE_PORT}
+      - SPRING_PROFILES_ACTIVE=dev
+
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    ports:
+      - "${PAYMENT_SERVICE_PORT}:${PAYMENT_SERVICE_PORT}"
+
+
+    networks:
+      - app-network
+
+  notification-service:
+    restart: on-failure
+
+    depends_on:
+      notification_db:
+        condition: service_started
+
+    environment:
+      - DB_HOST=${NOTIFICATION_DB_HOST}
+      - DB_PORT=${NOTIFICATION_DB_PORT}
+      - DB_NAME=${NOTIFICATION_DB_NAME}
+      - DB_USER=${NOTIFICATION_DB_USER}
+      - DB_PASSWORD=${NOTIFICATION_DB_PASSWORD}
+      - RABBIT_HOST=${RABBIT_HOST}
+      - RABBIT_PORT=${RABBIT_PORT}
+      - RABBIT_USER=${RABBIT_USER}
+      - RABBIT_PASSWORD=${RABBIT_PASSWORD}
+      - NOTIFICATION_SERVICE_PORT=${NOTIFICATION_SERVICE_PORT}
+
+    build:
+      context: ../notification_service
+      dockerfile: Dockerfile
+
+    ports:
+      - "${NOTIFICATION_SERVICE_PORT}:${NOTIFICATION_SERVICE_PORT}"
+
+
+    networks:
+      - app-network
+
+# rabbitMQ for payment_service
+  rabbitmq:
+    image: rabbitmq:4.0.3-management-alpine
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+      - app-network
+
+# Redis for payment_service
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  auth_db_data:

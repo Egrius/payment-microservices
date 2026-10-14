@@ -1,5 +1,6 @@
 package by.egrius.payment_service.unit.service;
 
+import by.egrius.payment_service.dto.idempotency_key.IdempotencyKeyReadDto;
 import by.egrius.payment_service.dto.transfer.TransferCreateDto;
 import by.egrius.payment_service.dto.transfer.TransferReadDto;
 import by.egrius.payment_service.entity.Account;
@@ -9,6 +10,9 @@ import by.egrius.payment_service.exception.payment_service.SameAccountTransferEx
 import by.egrius.payment_service.mapper.TransferMapper;
 import by.egrius.payment_service.repository.AccountRepository;
 import by.egrius.payment_service.repository.TransferRepository;
+import by.egrius.payment_service.service.CacheService;
+import by.egrius.payment_service.service.IdempotencyService;
+import by.egrius.payment_service.service.ReserveResult;
 import by.egrius.payment_service.service.TransferService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -16,8 +20,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import tools.jackson.databind.ObjectMapper;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -38,6 +44,14 @@ class TransferServiceUnitTests {
     @Mock
     private TransferMapper transferMapper;
 
+    @Mock
+    private IdempotencyService idempotencyService;
+
+    @Mock
+    private CacheService cacheService;
+
+    @Mock
+    private ObjectMapper objectMapper;
 
     @InjectMocks
     private TransferService transferService;
@@ -103,6 +117,20 @@ class TransferServiceUnitTests {
                 toAccountPublicId,
                 BigDecimal.valueOf(100)
         );
+
+        lenient().when(objectMapper.writeValueAsString(any())).thenReturn("{\"test\":\"value\"}");
+
+        IdempotencyKeyReadDto keyDto = new IdempotencyKeyReadDto(
+                UUID.randomUUID(),
+                userPublicId,
+                "test-hash",
+                null, null, null,
+                LocalDateTime.now(),
+                LocalDateTime.now().plusHours(1)
+        );
+
+        lenient().when(idempotencyService.reserve(any()))
+                .thenReturn(new ReserveResult(keyDto, true));
     }
 
     @Test

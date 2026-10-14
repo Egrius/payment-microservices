@@ -1,7 +1,7 @@
 package by.egrius.payment_service.dto.idempotency_key;
 
 import by.egrius.payment_service.dto.transfer.TransferReadDto;
-import by.egrius.payment_service.exception.handler.ErrorResponse;
+import by.egrius.payment_service.dto.response.ErrorResponse;
 
 import java.time.LocalDateTime;
 import java.util.UUID;

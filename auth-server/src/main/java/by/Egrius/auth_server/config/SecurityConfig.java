@@ -63,9 +63,6 @@ public class SecurityConfig {
     @Bean
     public AuthenticationFailureHandler authenticationFailureHandler() {
         return (request, response, exception) -> {
-            System.out.println("=== LOGIN FAILED ===");
-            System.out.println("Username: " + request.getParameter("username"));
-            System.out.println("Exception: " + exception.getMessage());
             response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Login failed");
         };
     }

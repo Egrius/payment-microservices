@@ -1,6 +1,6 @@
 package by.egrius.payment_service.exception.payment_service;
 
-import by.egrius.payment_service.exception.handler.ErrorResponse;
+import by.egrius.payment_service.dto.response.ErrorResponse;
 
 public class IdempotentReplayException extends RuntimeException {
     private final int httpStatus;

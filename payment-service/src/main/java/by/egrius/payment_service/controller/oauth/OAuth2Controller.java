@@ -1,6 +1,8 @@
 package by.egrius.payment_service.controller.oauth;
 
+import io.swagger.v3.oas.annotations.Hidden;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
@@ -13,6 +15,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.HashMap;
 import java.util.Map;
 
+@Hidden
 @RestController
 @RequiredArgsConstructor
 public class OAuth2Controller {
@@ -34,6 +37,7 @@ public class OAuth2Controller {
      * Debug endpoint to inspect the current OAuth2 access token.
      * Not intended for production use.
      */
+    @Profile("dev")
     @GetMapping("/token")
     public Map<String, Object> getAccessToken(Authentication authentication) {
         if (authentication == null) {

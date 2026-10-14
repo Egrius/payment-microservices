@@ -17,6 +17,7 @@ public abstract class BaseIntegrationTest {
                 .withDatabaseName("testdb")
                 .withUsername("test")
                 .withPassword("test")
+                .withCommand("postgres", "-c", "max_connections=200")
                 .withReuse(true);
 
         POSTGRES.start();

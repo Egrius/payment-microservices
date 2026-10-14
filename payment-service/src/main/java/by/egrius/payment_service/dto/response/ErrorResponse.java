@@ -1,4 +1,4 @@
-package by.egrius.payment_service.exception.handler;
+package by.egrius.payment_service.dto.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -15,8 +15,8 @@ import java.util.Map;
 public class ErrorResponse {
     private LocalDateTime timestamp;
     private int status;
-    private String error;
     private String code;
     private String message;
-    private Map<String, Object> details;
+    private String path;
+    private Object details;
 }

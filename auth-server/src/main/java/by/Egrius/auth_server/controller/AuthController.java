@@ -5,6 +5,7 @@ import by.Egrius.auth_server.entity.RoleName;
 import by.Egrius.auth_server.entity.User;
 import by.Egrius.auth_server.exception.UserEmailAlreadyExistsException;
 import by.Egrius.auth_server.repository.UserRepository;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -20,7 +21,7 @@ public class AuthController {
     private final PasswordEncoder passwordEncoder;
 
     @PostMapping("/register")
-    public ResponseEntity<String> register(@RequestBody RegisterRequest request) {
+    public ResponseEntity<String> register(@Valid @RequestBody RegisterRequest request) {
 
         userRepository.findByEmail(request.email())
                 .ifPresent(user -> {

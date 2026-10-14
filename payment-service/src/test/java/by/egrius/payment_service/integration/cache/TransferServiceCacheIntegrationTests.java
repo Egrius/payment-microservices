@@ -19,6 +19,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.mockito.ArgumentCaptor;
+import org.springframework.amqp.core.MessagePostProcessor;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -26,6 +27,7 @@ import org.springframework.cache.CacheManager;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
@@ -33,7 +35,6 @@ import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.Arrays;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -54,6 +55,7 @@ import static org.mockito.Mockito.*;
         webEnvironment = SpringBootTest.WebEnvironment.NONE
 )
 @Import(value = {TestCacheConfig.class})
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 public class TransferServiceCacheIntegrationTests extends BaseIntegrationTest {
     @Autowired
     private TransferService transferService;
@@ -201,7 +203,7 @@ public class TransferServiceCacheIntegrationTests extends BaseIntegrationTest {
         TransferReadDto createdTransfer = transferService.createTransfer(createDto, fromUserId, UUID.randomUUID());
 
         verify(cacheService, times(1)).put(any(), any(), any());
-        verify(rabbitTemplate, times(1)).convertAndSend(anyString(), anyString(), any(Object.class));
+        verify(rabbitTemplate, times(1)).convertAndSend(anyString(), anyString(), any(Object.class), any(MessagePostProcessor.class));
 
         assertFalse(redisTemplate.keys("transfers::*").isEmpty());
 
@@ -228,7 +230,7 @@ public class TransferServiceCacheIntegrationTests extends BaseIntegrationTest {
     }
 
     @Test
-    void processTransferShouldUpdateCacheToCompleted() throws Exception {
+    void processTransferShouldEvictCache() throws Exception {
         TransferCreateDto createDto = new TransferCreateDto(
                 fromAccount.getPublicId(),
                 toAccount.getPublicId(),
@@ -239,10 +241,13 @@ public class TransferServiceCacheIntegrationTests extends BaseIntegrationTest {
 
         TransferReadDto createdTransfer = transferService.createTransfer(createDto, fromUserId, UUID.randomUUID());
 
+        clearInvocations(cacheService);
+
         verify(rabbitTemplate, times(1)).convertAndSend(
                 anyString(),
                 anyString(),
-                eventCaptor.capture()
+                eventCaptor.capture(),
+                any(MessagePostProcessor.class)
         );
 
         TransferAddedEvent addedEvent = eventCaptor.getValue();
@@ -259,55 +264,10 @@ public class TransferServiceCacheIntegrationTests extends BaseIntegrationTest {
         transferProcessor.processTransfer(addedEvent);
 
         Object updatedCached = redisTemplate.opsForValue().get(redisKey);
-        assertThat(updatedCached).isNotNull();
-        TransferReadDto updatedDto = (TransferReadDto) updatedCached;
-        assertThat(updatedDto.status()).isEqualTo(TransferStatus.COMPLETED);
-        assertThat(updatedDto.processedAt()).isNotNull();
+        assertThat(updatedCached).isNull();
 
-        verify(cacheService, times(2)).put(eq("transfers"), eq(key), any(TransferReadDto.class));
-    }
-
-    @Test
-    void duplicateProcessingShouldNotUpdateCache() throws Exception {
-        TransferCreateDto createDto = new TransferCreateDto(
-                fromAccount.getPublicId(),
-                toAccount.getPublicId(),
-                BigDecimal.valueOf(150L)
-        );
-
-        ArgumentCaptor<TransferAddedEvent> eventCaptor = ArgumentCaptor.forClass(TransferAddedEvent.class);
-
-        TransferReadDto createdTransfer = transferService.createTransfer(createDto, fromUserId, UUID.randomUUID());
-
-        verify(rabbitTemplate, times(1)).convertAndSend(
-                anyString(),
-                anyString(),
-                eventCaptor.capture()
-        );
-
-        TransferAddedEvent addedEvent = eventCaptor.getValue();
-        assertNotNull(addedEvent);
-
-        var key = fromUserId + "_" + createdTransfer.publicId();
-        var redisKey = "transfers::" + key;
-
-        transferProcessor.processTransfer(addedEvent);
-
-        Object cached = redisTemplate.opsForValue().get(redisKey);
-        assertThat(cached).isNotNull();
-        TransferReadDto cachedDto = (TransferReadDto) cached;
-        assertThat(cachedDto.status()).isEqualTo(TransferStatus.COMPLETED);
-
-        clearInvocations(cacheService);
-
-        transferProcessor.processTransfer(addedEvent);
-
+        verify(cacheService, times(1)).evict(eq("transfers"), eq(key));
         verify(cacheService, never()).put(eq("transfers"), eq(key), any(TransferReadDto.class));
-
-        Object afterDuplicate = redisTemplate.opsForValue().get(redisKey);
-        assertThat(afterDuplicate).isNotNull();
-        TransferReadDto afterDto = (TransferReadDto) afterDuplicate;
-        assertThat(afterDto.status()).isEqualTo(TransferStatus.COMPLETED);
     }
 
     @Test
@@ -325,13 +285,18 @@ public class TransferServiceCacheIntegrationTests extends BaseIntegrationTest {
         verify(rabbitTemplate, times(1)).convertAndSend(
                 anyString(),
                 anyString(),
-                eventCaptor.capture()
+                eventCaptor.capture(),
+                any(MessagePostProcessor.class)
         );
 
         TransferAddedEvent addedEvent = eventCaptor.getValue();
         assertNotNull(addedEvent);
 
         transferProcessor.processTransfer(addedEvent);
+
+        transferService.getTransferStatus(createdTransfer.publicId(), fromUserId);
+
+        clearInvocations(transferRepository);
 
         int threadCount = 10;
         CountDownLatch startLatch = new CountDownLatch(1);
@@ -383,7 +348,8 @@ public class TransferServiceCacheIntegrationTests extends BaseIntegrationTest {
         verify(rabbitTemplate, times(1)).convertAndSend(
                 anyString(),
                 anyString(),
-                eventCaptor.capture()
+                eventCaptor.capture(),
+                any(MessagePostProcessor.class)
         );
 
         TransferAddedEvent addedEvent = eventCaptor.getValue();
@@ -428,7 +394,8 @@ public class TransferServiceCacheIntegrationTests extends BaseIntegrationTest {
         verify(rabbitTemplate, times(1)).convertAndSend(
                 anyString(),
                 anyString(),
-                eventCaptor.capture()
+                eventCaptor.capture(),
+                any(MessagePostProcessor.class)
         );
 
         TransferAddedEvent addedEvent = eventCaptor.getValue();
@@ -467,7 +434,8 @@ public class TransferServiceCacheIntegrationTests extends BaseIntegrationTest {
         verify(rabbitTemplate, times(1)).convertAndSend(
                 anyString(),
                 anyString(),
-                eventCaptor.capture()
+                eventCaptor.capture(),
+                any(MessagePostProcessor.class)
         );
 
         TransferAddedEvent addedEvent = eventCaptor.getValue();
@@ -481,8 +449,8 @@ public class TransferServiceCacheIntegrationTests extends BaseIntegrationTest {
 
         transferProcessor.processTransfer(addedEvent);
 
-        Long completedTtl = redisTemplate.getExpire(redisKey);
-        assertThat(completedTtl).isBetween(290L, 310L);
+        Long afterProcess = redisTemplate.getExpire(redisKey);
+        assertThat(afterProcess).isLessThan(0L);
     }
 
     @Test
@@ -501,13 +469,19 @@ public class TransferServiceCacheIntegrationTests extends BaseIntegrationTest {
         verify(rabbitTemplate, times(1)).convertAndSend(
                 anyString(),
                 anyString(),
-                eventCaptor.capture()
+                eventCaptor.capture(),
+                any(MessagePostProcessor.class)
         );
 
         TransferAddedEvent addedEvent = eventCaptor.getValue();
         assertNotNull(addedEvent);
 
         transferProcessor.processTransfer(addedEvent);
+
+        transferService.getTransferStatus(createdTransfer.publicId(), fromUserId);
+
+        verify(transferRepository, times(1))
+                .findByTransferPublicId_and_UserPublicId(any(), any());
 
         clearInvocations(transferRepository);
 
@@ -535,7 +509,8 @@ public class TransferServiceCacheIntegrationTests extends BaseIntegrationTest {
         verify(rabbitTemplate, times(1)).convertAndSend(
                 anyString(),
                 anyString(),
-                eventCaptor.capture()
+                eventCaptor.capture(),
+                any(MessagePostProcessor.class)
         );
 
         TransferAddedEvent addedEvent = eventCaptor.getValue();
@@ -547,21 +522,15 @@ public class TransferServiceCacheIntegrationTests extends BaseIntegrationTest {
         transferProcessor.processTransfer(addedEvent);
 
         Object cachedBefore = redisTemplate.opsForValue().get(redisKey);
-        assertThat(cachedBefore).isNotNull();
-        TransferReadDto beforeDuplicate = (TransferReadDto) cachedBefore;
-        assertThat(beforeDuplicate.status()).isEqualTo(TransferStatus.COMPLETED);
+        assertThat(cachedBefore).isNull();
 
+        verify(cacheService, times(1)).evict(eq("transfers"), eq(key));
 
         clearInvocations(cacheService);
 
         transferProcessor.processTransfer(addedEvent);
 
+        verify(cacheService, never()).evict(eq("transfers"), eq(key));
         verify(cacheService, never()).put(eq("transfers"), eq(key), any(TransferReadDto.class));
-
-        Object cachedAfter = redisTemplate.opsForValue().get(redisKey);
-        assertThat(cachedAfter).isNotNull();
-        TransferReadDto afterDuplicate = (TransferReadDto) cachedAfter;
-
-        assertThat(beforeDuplicate).isEqualTo(afterDuplicate);
     }
 }

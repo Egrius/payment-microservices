@@ -1,6 +1,10 @@
+debug: true
+
 logging:
   level:
     by.egrius.payment_service.service: DEBUG
+    org.springframework.cache: DEBUG
+    org.springframework.data.redis: DEBUG
 
 spring:
   security:
@@ -25,6 +29,10 @@ spring:
     username: postgres
     password:  ${DB_PASSWORD:test}
     driver-class-name: org.postgresql.Driver
+
+    hikari:
+      maximum-pool-size: 20
+      leak-detection-threshold: 10000
 
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect

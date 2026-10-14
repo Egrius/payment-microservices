@@ -53,6 +53,7 @@ public class TestCacheConfig {
     private ObjectMapper objectMapper() {
         PolymorphicTypeValidator ptv = BasicPolymorphicTypeValidator.builder()
                 .allowIfSubType("by.egrius.payment_service.dto.")
+                .allowIfSubType("by.egrius.payment_service.entity.")
                 .allowIfSubType("java.util.")
                 .allowIfSubType("java.math.")
                 .allowIfSubType("java.lang.")

@@ -14,14 +14,20 @@ import by.egrius.payment_service.exception.payment_service.*;
 import by.egrius.payment_service.mapper.TransferMapper;
 import by.egrius.payment_service.repository.AccountRepository;
 import by.egrius.payment_service.repository.TransferRepository;
+import by.egrius.payment_service.repository.filter.TransferFilter;
 import by.egrius.payment_service.repository.projection.TransferProjection;
+import by.egrius.payment_service.repository.specification.TransferSpecifications;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.core.Message;
+import org.springframework.amqp.core.MessageBuilder;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -35,26 +41,46 @@ import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class TransferService {
 
     private final TransferRepository transferRepository;
     private final AccountRepository accountRepository;
-    private final TransferMapper transferMapper;
-    private final IdempotencyService idempotencyService;
 
+    private final IdempotencyService idempotencyService;
     private final CacheService cacheService;
+
+    private final TransferMapper transferMapper;
 
     private final RabbitTemplate rabbitTemplate;
 
-    @Qualifier("hashObjectMapper")
     private final ObjectMapper objectMapper;
 
+    public TransferService(
+            TransferRepository transferRepository,
+            AccountRepository accountRepository,
+            IdempotencyService idempotencyService,
+            CacheService cacheService,
+            TransferMapper transferMapper,
+            RabbitTemplate rabbitTemplate,
+            @Qualifier("hashObjectMapper") ObjectMapper objectMapper) {
+
+        this.transferRepository = transferRepository;
+        this.accountRepository = accountRepository;
+        this.idempotencyService = idempotencyService;
+        this.cacheService = cacheService;
+        this.transferMapper = transferMapper;
+        this.rabbitTemplate = rabbitTemplate;
+        this.objectMapper = objectMapper;
+    }
+
+    private static final Set<String> ALLOWED_SORTS = Set.of("createdAt", "amount", "status");
     private static final String EXCHANGE_NAME = "processing.exchange";
     private static final String ROUTING_KEY = "transfer.processing";
 
@@ -64,7 +90,7 @@ public class TransferService {
      * - Sends event to RabbitMQ after transaction commit
      * - Returns DTO with transfer info
      */
-    // TODO: remove PaymentServiceException and add DeterministicException for Idempotent Exceptions
+
     @Transactional
     public TransferReadDto createTransfer(TransferCreateDto createDto, UUID publicUserId, UUID idempotencyValue) {
 
@@ -78,8 +104,8 @@ public class TransferService {
                 1L,
                 TimeUnit.HOURS));
 
-        log.debug("Reserved result: " + reserveResult.keyReadDto());
-        log.debug("Reserved result isNew: " + reserveResult.isNew());
+        log.debug("Reserved result: {}", reserveResult.keyReadDto());
+        log.debug("Reserved result isNew: {} ", reserveResult.isNew());
 
         if(!reserveResult.isNew()) {
 
@@ -150,7 +176,7 @@ public class TransferService {
                             try {
                                 IdempotencyKeyReadDto keyReadDto = idempotencyService.complete(idempotencyValue, publicUserId, 201, savedTransferReadDto, null);
 
-                                log.debug("Idempotency key was completed: " + keyReadDto);
+                                log.debug("Idempotency key was completed: {}", keyReadDto);
 
                             } catch (Exception e) {
                                 log.error("Failed to complete key {}", idempotencyValue, e);
@@ -161,16 +187,19 @@ public class TransferService {
 
                             try {
                                 // Sending to RabbitMQ
-                                rabbitTemplate.convertAndSend(
-                                        EXCHANGE_NAME,
-                                        ROUTING_KEY,
-                                        new TransferAddedEvent(
-                                                publicUserId,
-                                                savedTransfer.getPublicId(),
-                                                fromAccount.getId(),
-                                                toAccount.getId(),
-                                                savedTransfer.getId()
-                                        ));
+                                TransferAddedEvent event = new TransferAddedEvent(
+                                        publicUserId,
+                                        savedTransfer.getPublicId(),
+                                        fromAccount.getId(),
+                                        toAccount.getId(),
+                                        savedTransfer.getId()
+                                );
+
+                                // Adding messageId to let stateful retry work
+                                rabbitTemplate.convertAndSend(EXCHANGE_NAME, ROUTING_KEY, event, message -> {
+                                    message.getMessageProperties().setMessageId(UUID.randomUUID().toString());
+                                    return message;
+                                });
 
                                 log.info("TransferAddedEvent sent to RabbitMQ: transferId={}", savedTransfer.getPublicId());
                             } catch (Exception e) {
@@ -187,16 +216,35 @@ public class TransferService {
         } catch (RuntimeException e) {
 
             if (e instanceof DeterministicException det) {
-                idempotencyService.complete(
-                        reserveResult.keyReadDto().value(),
-                        reserveResult.keyReadDto().userId(),
-                        det.getErrorCode().getHttpStatus(),
-                        null,
-                        det.toErrorResponse()
-                );
+
+                try {
+                    idempotencyService.complete(
+                            reserveResult.keyReadDto().value(),
+                            reserveResult.keyReadDto().userId(),
+                            det.getErrorCode().getHttpStatus(),
+                            null,
+                            det.toErrorResponse()
+                    );
+                } catch (Exception completeError) {
+                    log.error("Failed to complete key {} - releasing to avoid null status in key",
+                            idempotencyValue, completeError);
+
+                    try {
+                        idempotencyService.release(idempotencyValue, publicUserId);
+                    } catch (Exception releaseError) {
+                        log.error("Failed to release key {}", idempotencyValue, releaseError);
+                    }
+                }
+
             } else {
-                idempotencyService.release(idempotencyValue, publicUserId);
+
+                try {
+                    idempotencyService.release(idempotencyValue, publicUserId);
+                } catch (Exception releaseError) {
+                    log.error("Failed to release key {}", idempotencyValue, releaseError);
+                }
             }
+
             throw e;
 
         }
@@ -207,7 +255,6 @@ public class TransferService {
 
         log.debug("Getting transfer status: transferId={}, userId={}", transferPublicId, userPublicId);
 
-
         Transfer transfer = transferRepository
                 .findByTransferPublicId_and_UserPublicId(transferPublicId, userPublicId)
                 .orElseThrow(() -> {
@@ -217,6 +264,20 @@ public class TransferService {
 
         log.debug("Transfer found: status={}", transfer.getStatus());
         return transferMapper.mapToReadDto(transfer);
+    }
+
+    public Page<TransferReadDto> getTransfersByFilter(UUID userId, TransferFilter filter, Pageable pageable) {
+
+        validateSort(pageable);
+
+        Specification<Transfer> spec = Specification
+                .where(TransferSpecifications.byUser(userId))
+                .and(TransferSpecifications.byStatus(filter.status()))
+                .and(TransferSpecifications.byDateRange(filter.fromDate(), filter.toDate()))
+                .and(TransferSpecifications.byMaxAmount(filter.maxAmount()))
+                .and(TransferSpecifications.byMinAmount(filter.minAmount()));
+
+        return transferRepository.findAll(spec, pageable).map(transferMapper::mapToReadDto);
     }
 
     public Page<TransferReadDto> getTransfersByUserId(UUID userId,  int page, int size) {
@@ -258,4 +319,11 @@ public class TransferService {
         }
     }
 
+    private void validateSort(Pageable pageable) {
+        pageable.getSort().forEach(order -> {
+            if (!ALLOWED_SORTS.contains(order.getProperty())) {
+                throw new InvalidSortException(order.getProperty());
+            }
+        });
+    }
 }

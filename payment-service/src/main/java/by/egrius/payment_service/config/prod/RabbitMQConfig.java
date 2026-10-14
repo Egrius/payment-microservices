@@ -2,6 +2,7 @@ package by.egrius.payment_service.config.prod;
 
 import by.egrius.payment_service.event.TransferAddedEvent;
 import by.egrius.payment_service.exception.payment_service.TransferProcessingException;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.core.*;
 import org.springframework.amqp.rabbit.annotation.EnableRabbit;
 import org.springframework.amqp.rabbit.config.RetryInterceptorBuilder;
@@ -10,6 +11,7 @@ import org.springframework.amqp.rabbit.connection.CachingConnectionFactory;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.rabbit.listener.RabbitListenerContainerFactory;
+import org.springframework.amqp.rabbit.retry.RejectAndDontRequeueRecoverer;
 import org.springframework.amqp.support.converter.DefaultClassMapper;
 import org.springframework.amqp.support.converter.JacksonJsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
@@ -25,6 +27,7 @@ import java.util.Map;
 
 @EnableRabbit
 @Configuration
+@Slf4j
 public class RabbitMQConfig {
 
     @Value("${spring.rabbitmq.username}")
@@ -43,6 +46,8 @@ public class RabbitMQConfig {
     public Queue processingQueue() {
         return QueueBuilder
                 .durable("processing.queue")
+                .deadLetterExchange("dead.letter.exchange")
+                .deadLetterRoutingKey("dead.letter.key")
                 .build();
     }
 
@@ -61,6 +66,22 @@ public class RabbitMQConfig {
                 .with("transfer.processing");
     }
 
+    @Bean
+    public DirectExchange deadLetterExchange() {
+        return new DirectExchange("dead.letter.exchange");
+    }
+
+    @Bean
+    public Queue deadLetterQueue() {
+        return QueueBuilder.durable("dead.letter.queue").build();
+    }
+
+    @Bean
+    public Binding deadLetterBinding() {
+        return BindingBuilder.bind(deadLetterQueue())
+                .to(deadLetterExchange())
+                .with("dead.letter.key");
+    }
 
     @Bean
     public CachingConnectionFactory connectionFactory() {
@@ -68,6 +89,9 @@ public class RabbitMQConfig {
 
         cachingConnectionFactory.setUsername(username);
         cachingConnectionFactory.setPassword(password);
+        cachingConnectionFactory.setPublisherConfirmType(CachingConnectionFactory.ConfirmType.CORRELATED);
+        cachingConnectionFactory.setPublisherReturns(true);
+
         return cachingConnectionFactory;
     }
 
@@ -93,17 +117,19 @@ public class RabbitMQConfig {
     public RabbitListenerContainerFactory<?> rabbitListenerContainerFactory(
             ConnectionFactory connectionFactory,
             MessageConverter messageConverter) {
+
         SimpleRabbitListenerContainerFactory factory = new SimpleRabbitListenerContainerFactory();
+
         factory.setConnectionFactory(connectionFactory);
         factory.setMessageConverter(messageConverter);
 
         factory.setAdviceChain(RetryInterceptorBuilder
-                .stateless()
+                .stateful()
                 .maxRetries(3)
                 .backOffOptions(1000, 2.0, 5000)
-                .configureRetryPolicy(c ->
-                        c.includes(TransferProcessingException.class))
+                .recoverer(new RejectAndDontRequeueRecoverer()) // causes the listener container to reject the message without requeuing. This enables failed messages to be sent to a Dead Letter Exchange/ Queue if the broker is so configured.
                 .build());
+
         return factory;
     }
 
@@ -111,12 +137,33 @@ public class RabbitMQConfig {
     public RabbitTemplate rabbitTemplate() {
         RabbitTemplate template = new RabbitTemplate(connectionFactory());
         template.setMessageConverter(messageConverter());
+
         RetryPolicy retryPolicy = RetryPolicy.builder()
                 .delay(Duration.ofMillis(500))
                 .multiplier(2.0)
                 .maxDelay(Duration.ofSeconds(10))
                 .build();
+
         template.setRetryTemplate(new RetryTemplate(retryPolicy));
+
+        template.setMandatory(true);
+
+        template.setConfirmCallback(((correlationData, ack, cause) -> {
+            if(ack) {
+                log.debug("Message confirmed: {}", correlationData);
+            } else {
+                log.error("Message NACK: {}, cause: {}", correlationData, cause);
+            }
+        }));
+
+        template.setReturnsCallback(returned -> {
+            log.error("Message returned: exchange={}, routingKey={}, replyCode={}, replyText={}",
+                    returned.getExchange(),
+                    returned.getRoutingKey(),
+                    returned.getReplyCode(),
+                    returned.getReplyText()
+            );
+        });
 
         return template;
     }

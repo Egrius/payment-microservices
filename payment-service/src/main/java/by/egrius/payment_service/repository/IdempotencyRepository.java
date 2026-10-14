@@ -14,8 +14,8 @@ public interface IdempotencyRepository extends JpaRepository<IdempotencyKey, Lon
 
     @Modifying
     @Query(value = """
-            INSERT INTO idempotency_keys (value, user_id, request_hash, created_at, expires_at) 
-            VALUES (:value, :userId, :requestHash, :createdAt, :expiresAt) 
+            INSERT INTO idempotency_keys (value, user_id, request_hash, created_at, expires_at)
+            VALUES (:value, :userId, :requestHash, :createdAt, :expiresAt)
             ON CONFLICT (value, user_id) DO NOTHING
             """, nativeQuery = true)
     int tryInsert( @Param("value") UUID value,
@@ -27,4 +27,10 @@ public interface IdempotencyRepository extends JpaRepository<IdempotencyKey, Lon
     Optional<IdempotencyKey> findByValueAndUserId(UUID value, UUID userId);
 
     boolean deleteByValueAndUserId(UUID value, UUID userId);
+
+    @Modifying
+    @Query(value = "DELETE FROM IdempotencyKey ik " +
+            "WHERE ik.expiresAt > :beforeTime"
+            )
+    int deleteByExpiresAtBefore(@Param("beforeTime") LocalDateTime beforeTime);
 }
