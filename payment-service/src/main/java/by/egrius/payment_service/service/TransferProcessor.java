@@ -58,6 +58,10 @@ public class TransferProcessor {
             log.warn("Transfer {} failed due to insufficient funds", transferId);
             transferFailureHandler.handle(transferId, "Insufficient funds: " + e.getMessage());
 
+        }catch (TransferNotPendingException e) {
+            // Duplicate delivery: transfer already in a terminal state (FAILED).
+            log.warn("Transfer {} is not pending ({}), skipping duplicate", transferId, e.getCurrentStatus());
+
         } catch (Exception e) {
             log.error("Unexpected error processing transfer {}", transferId, e);
             transferFailureHandler.handle(transferId, "Internal error: " + e.getMessage());

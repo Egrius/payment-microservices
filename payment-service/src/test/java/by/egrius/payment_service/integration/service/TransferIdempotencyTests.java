@@ -61,7 +61,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         WebConfig.class
 })
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-public class TrasnferIdempotencyTests extends BaseIntegrationTest {
+public class TransferIdempotencyTests extends BaseIntegrationTest {
 
     @Autowired
     private TransferService transferService;
