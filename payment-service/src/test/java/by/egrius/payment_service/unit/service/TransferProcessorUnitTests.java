@@ -146,8 +146,7 @@ class TransferProcessorUnitTests {
         transferProcessor.processTransfer(transferAddedEvent);
 
         verify(accountRepository, never()).findByPublicIdPessimistic(anyLong());
-        verify(transferFailureHandler, times(1))
-                .handle(eq(TRANSFER_ID), contains("Internal error"));
+        verifyNoInteractions(transferFailureHandler);
     }
 
     // ---------- FAILURES ----------
