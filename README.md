@@ -77,14 +77,14 @@ sequenceDiagram
 git clone https://github.com/Egrius/payment-microservices
 
 # Change the directory
-cd payment-microservices/payment-service
+cd payment-microservices
 
 # Create .env from the template and set your own values
 cp .env.example .env
 # Open .env and change DB_PASSWORD, AUTH_DB_PASSWORD, etc.
 
 # Start everything
-docker compose -f ./docker-compose.yaml --env-file ./.env up -d
+docker compose -f ./docker-compose.yaml --env-file ./.env up --build
 ```
 
 > **Note**: `.env` is not committed to the repository. Use `.env.example` as a template.
