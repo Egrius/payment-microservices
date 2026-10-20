@@ -1,3 +1,4 @@
+
 # Payment-Microservices
 
 
@@ -107,9 +108,8 @@ API documentation (Swagger UI):
 - payment-service: http://localhost:8080/swagger-ui.html
 - notification-service: http://localhost:8081/swagger-ui.html
 
-> Use the **Authorize** button to provide a JWT for testing protected endpoints.
-> The debug endpoint `GET /token` on payment-service returns the current OAuth2
-> access token (available only with `dev` profile).
+> For local testing: `POST /dev/token` (active only with the `dev` profile)
+> returns a JWT for the seeded test user without the OAuth2 authorization code flow.
 
 Health checks:
 
@@ -148,7 +148,7 @@ The flow is built around `tryInsert()` in `IdempotencyService` class. `tryInsert
 3. If the insert succeeded (isNew = true), then process the request normally. On commit, store the response in the key (complete(..., 201, responseBody, null)). On a deterministic failure (validation, insufficient funds) - store the error response. On a transient failure - release the key (release(...)) so the next retry can proceed.
 
 4. If the key already existed (isNew = false) then check:
-  - requestHash mismatch -> `IdempotencyKeyMismatchException` (400). Same key, different body - client bug.
+  - requestHash mismatch -> `IdempotencyKeyMismatchException` (422). Same key, different body - client bug.
   - responseStatus == null -> `TransferInProgressException` (409). The first request is still in flight.
   - responseStatus >= 400 -> `IdempotentReplayException` with the stored error body.
   - Otherwise return the stored successful response body.
@@ -238,6 +238,71 @@ Tests demonstrate the patterns actually work:
   
 Integration tests use Testcontainers (PostgreSQL, Redis, RabbitMQ).
 
+## Smoke test
+
+The databases are seeded on first start: a test user in `auth_db` and two accounts in `payment_db`. All steps except SSE can be done from Swagger UI.
+
+### Pre-seeded data
+
+**User** (auth-server):
+```
+email:    smoke@test.com
+password: password123
+public_id: 11111111-1111-1111-1111-111111111111
+```
+
+**Accounts** (payment-service, owned by the user above):
+```
+Checking: 22222222-2222-2222-2222-222222222222  (1000.00 USD)
+Savings:  33333333-3333-3333-3333-333333333333  (1000.00 USD)
+```
+
+Follow up the smoke test flow:
+
+#### Step 1 - Get a JWT
+
+- Open `http://localhost:8080/swagger-ui.html`.
+- Find **Dev - Auth** and perform `POST /dev/token`.
+- There is already an example value with test data (user from above). Press **Execute**.
+
+Response: `200 OK`, copy the value from `access_token`.
+
+> `/dev/token` is dev-only endpoint that's available with 'dev' profile for smoke test purpose.
+
+#### Step 2 - Authorize in Swagger
+
+- Use `Authorize` button at the right top corner.
+- Paste the token you've obtained **without** the `Bearer ` prefix.
+- Now secured endpoints are available for you.
+
+#### Step 3 - Create a transfer
+
+- Find **Transfers** and perform `POST /api/transfers`.
+- **Idempotency-Key** is already filled with `aaaaaaaa-...`.
+- **Example Value** is already filled with seed-data (`22222222-...`, `33333333-...`, `20.00`).
+- Press **Execute**.
+
+Response: `201 Created`, `{"status":"PENDING"}`, copy the value from `publicId` (transfer's id),  you'll use in step 4.
+
+#### Step 4 - Check async processing
+
+- Wait for 1-2 seconds.
+- Perform `GET /api/transfers/{publicId}` (use `publicId` from the **step 3**).
+-  Status should be changed from `PENDING` to `COMPLETED`, and `processedAt` is populated.
+
+> **What happens between steps 3 and 4:**  `payment-service` publishes `TransferAddedEvent` to `processing.queue`, `TransferProcessor` picks it up, updates the transfer and balances, and publishes `TransferProcessedEvent` to `payment.exchange`. `notification-service` consumes it from `notification.queue` and pushes to the client via SSE.
+
+#### Step 5 - Verify idempotency
+
+- Repeat the same `POST /api/transfers` with the exact same `Idempotency-Key` and request body (from the **step 3**).
+- Response should be identical to step 3 (same `publicId`, same `status`)
+- No second transfer is created.
+- `GET /api/accounts` - balances are unchanged from after step 3 (`Checking` = 980.00, `Savings` = 1020.00).
+
+#### Step 6 - SSE notification
+
+The SSE endpoint is exposed at `notification-service` Swagger UI (`http://localhost:8081/swagger-ui.html`), but **Swagger UI does not support streaming responses** - the "Try it out" button will return an empty body. Use **Postman** or `curl -N` instead.
+
 ## Restrictions and compromises
 
 ### Consciously omitted: 
@@ -256,9 +321,10 @@ required - but implementing it here would be excessive.
 ### Token delivery to the client
 
 The current setup mixes OAuth2 client flow (stateful session) for login
-and JWT (stateless) for `/api/**`. With dev profile, `GET /token` bridges the two -
-it returns the token stored in the session.
+and JWT (stateless) for `/api/**`. For local testing, `POST /dev/token`
+(dev profile only) issues a JWT directly from email/password, bypassing the
+authorization code flow. No session is involved - it's a dev-only shortcut.
+The production path still goes through auth-server's `/oauth2/authorize`.
 
 The current approach was chosen to keep the demo simple; the focus was on
-backend patterns (idempotency, DLQ, deadlock prevention), not on frontend
-architecture.
+backend patterns (idempotency, DLQ, deadlock prevention), not on frontend architecture.
