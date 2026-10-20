@@ -31,7 +31,7 @@ sequenceDiagram
     Payment Service->>RabbitMQ: Publish TransferProcessedEvent
     RabbitMQ->>Notification Service: TransferProcessedEvent
     Notification Service->>Client: SSE Push (COMPLETED)
-````
+```
 
 **Services:**
 
@@ -123,8 +123,6 @@ Health checks:
 ```
 
 > **Note**: Integration tests use Testcontainers (Docker must be running).
-> Some tests may be flaky when run together because of Testcontainers startup ordering.
-> Run them separately if needed.
 
 ### Rebuild a module without tests
 
@@ -189,28 +187,28 @@ Set up in RabbitMQ config:
 
 - **Duplicate delivery** (`TransferNotPendingException`) -> transfer is already in a
   terminal state (e.g., `FAILED` after a previous attempt). The listener logs a warning
-  and ACK-s the message. No retry, no state change. This is an expected outcome of
+  and ACK the message. No retry, no state change. This is an expected outcome of
   at-least-once delivery, not an error.
   
 - **Transient** (all other exceptions, including exceptions from `TransferFailureHandler` itself) -> **no interceptions** -> retry (3 attempts) -> DLQ.
   
-No additional handling is needed in `TransferProcessor`. When `TransferFailureHandler.handle(...)` itself throws -  it wraps the cause in  `TransferProcessingException`, which goes **out** of the listener method (there is no outer `catch`), reaching the retry-advice.
+There is no outer catch in `TransferProcessor`. When `TransferFailureHandler.handle(...)` itself throws, it wraps the cause in `TransferProcessingException`, which propagates out of the listener method and reaches the retry-advice.
 
 ### 4. Deadlock prevention
 Accounts are locked during the transfer using pessimistic lock in ascending order of their IDs. <br>
 Tested with concurrency tests.
 
 ### 5. Failure handling without breaking the main transaction
-<code>TransferFailureHandler</code> uses <code>REQUIRED</code> propagation instead of 
-<code>REQUIRES_NEW</code> because <code>REQUIRES_NEW</code> leads to a deadlock on the 
+`TransferFailureHandler` uses `REQUIRED` propagation instead of 
+`REQUIRES_NEW` because `REQUIRES_NEW` leads to a deadlock on the 
 pessimistic lock on accounts, which is held by the main transaction.
 
 The handler loads the Transfer itself (findById) and does not rely on the caller's 
-persistence context - <code>findById</code> could return an already MANAGED entity 
+persistence context - `findById` could return an already MANAGED entity 
 if it was loaded earlier in the same transaction.
 
 ### 6. SSE
-Active <code>SseEmitter</code> instances are stored in <code>ConcurrentHashMap</code>, batch sending of <code>PENDING</code> notifications when the connection is established, and cleanup on <code>onCompletion</code>/<code>onTimeout</code>/<code>onError</code>. Some extra notification statuses may be used in the future to guarantee the delivery.
+Active `SseEmitter` instances are stored in `ConcurrentHashMap`, batch sending of `PENDING` notifications when the connection is established, and cleanup on `onCompletion`/`onTimeout`/`onError`. Some extra notification statuses may be used in the future to guarantee the delivery.
 
 ## Tests
 
