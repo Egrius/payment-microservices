@@ -103,7 +103,7 @@ public class SubscriptionService {
     @Transactional
     public void handlePaymentEvent(TransferProcessedEvent event) {
 
-        log.info("Received payment event for user: {}", event.getUserPublicTd());
+        log.info("Received payment event for user: {}", event.getUserPublicId());
         notificationService.createNotificationForPaymentProcessedEventAndSendToUser(event);
     }
 }

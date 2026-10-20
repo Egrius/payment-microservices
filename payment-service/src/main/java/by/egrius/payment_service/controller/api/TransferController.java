@@ -57,7 +57,13 @@ public class TransferController {
 
                                                           @Valid @RequestBody TransferCreateDto createDto,
 
-                                                          @Parameter(description = "Idempotency key (UUID)", required = true)
+                                                          @Parameter(
+                                                                  description = """
+                Idempotency key (UUID). Use the same key to retry the same transfer -
+                the server returns the stored response. Use a new UUID for a new transfer.
+                """,
+                                                                  example = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+                                                                  required = true)
                                                           @RequestHeader("Idempotency-Key") UUID idempotencyKey) {
 
 

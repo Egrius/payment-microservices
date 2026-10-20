@@ -1,0 +1,8 @@
+spring:
+  jpa:
+    defer-datasource-initialization: true
+  sql:
+    init:
+      mode: always
+      schema-locations: []
+      data-locations: classpath:seed.sql

@@ -10,18 +10,17 @@ import java.util.UUID;
 @Schema(description = "Request for transfer creation")
 public record TransferCreateDto(
 
-        @Schema(description = "Public ID of the source account",
-                example = "660e8400-e29b-41d4-a716-446655440001")
+        @Schema(description = "Source account public ID",
+                example = "22222222-2222-2222-2222-222222222222")
         @NotNull(message = "From account ID cannot be null")
         UUID fromAccountPublicId,
 
-        @Schema(description = "Public ID of the destination account",
-                example = "770e8400-e29b-41d4-a716-446655440002")
+        @Schema(description = "Destination account public ID",
+                example = "33333333-3333-3333-3333-333333333333")
         @NotNull(message = "To account ID cannot be null")
         UUID toAccountPublicId,
 
-        @Schema(description = "Transfer amount, must be positive",
-                example = "100.00")
+        @Schema(description = "Amount to transfer", example = "20.00")
         @NotNull(message = "Amount cannot be null")
         @Positive(message = "Amount must be positive")
         BigDecimal amount

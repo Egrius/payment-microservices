@@ -12,7 +12,7 @@ import java.util.UUID;
 @NoArgsConstructor
 public class TransferProcessedEvent {
 
-    private UUID userPublicTd;
+    private UUID userPublicId;
     private BigDecimal amount;
     private UUID fromAccountPublicId;
     private UUID toAccountPublicId;
@@ -25,7 +25,7 @@ public class TransferProcessedEvent {
                                   TransferStatus status
     ) {
 
-        this.userPublicTd = userPublicTd;
+        this.userPublicId = userPublicTd;
         this.fromAccountPublicId = fromAccountPublicId;
         this.toAccountPublicId = toAccountPublicId;
         this.transferPublicId = transferPublicId;
@@ -35,7 +35,7 @@ public class TransferProcessedEvent {
 
     public TransferProcessedEvent(UUID userPublicTd, TransferReadDto transferReadDto) {
 
-        this.userPublicTd = userPublicTd;
+        this.userPublicId = userPublicTd;
         this.toAccountPublicId = transferReadDto.toAccountPublicId();
         this.fromAccountPublicId = transferReadDto.fromAccountPublicId();
         this.transferPublicId = transferReadDto.publicId();

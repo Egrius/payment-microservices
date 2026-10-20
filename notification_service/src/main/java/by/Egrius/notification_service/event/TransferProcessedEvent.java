@@ -10,20 +10,20 @@ import java.util.UUID;
 @Getter
 @NoArgsConstructor
 public class TransferProcessedEvent {
-    private UUID userPublicTd;
+    private UUID userPublicId;
     private BigDecimal amount;
     private UUID fromAccountPublicId;
     private UUID toAccountPublicId;
     private UUID transferPublicId;
     private TransferStatus status;
 
-    public TransferProcessedEvent(Object source, UUID userPublicTd,
+    public TransferProcessedEvent(Object source, UUID userPublicId,
                                   UUID fromAccountPublicId, UUID toAccountPublicId,
                                   UUID transferPublicId, BigDecimal amount,
                                   TransferStatus status
     ) {
 
-        this.userPublicTd = userPublicTd;
+        this.userPublicId = userPublicId;
         this.fromAccountPublicId = fromAccountPublicId;
         this.toAccountPublicId = toAccountPublicId;
         this.transferPublicId = transferPublicId;

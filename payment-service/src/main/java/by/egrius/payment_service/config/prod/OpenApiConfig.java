@@ -22,7 +22,9 @@ public class OpenApiConfig {
                                         .type(SecurityScheme.Type.HTTP)
                                         .scheme("bearer")
                                         .bearerFormat("JWT")
-                                        .description("Paste your access token from /token (dev profile)")
+                                        .description(
+                                                "Paste your access token. " +
+                                                "Get it from /dev/token (Smoke test endpoint)")
                         )
                 );
     }

@@ -22,6 +22,8 @@ public class OpenApiConfig {
                                         .type(SecurityScheme.Type.HTTP)
                                         .scheme("bearer")
                                         .bearerFormat("JWT")
+                                        .description("Get a JWT Token from payment-service." +
+                                                "Endpoint is available at payment-service's swagger-ui.html")
                         )
                 );
     }

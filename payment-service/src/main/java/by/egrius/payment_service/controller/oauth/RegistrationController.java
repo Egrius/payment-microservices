@@ -17,15 +17,20 @@ import org.springframework.web.client.RestTemplate;
 @RequiredArgsConstructor
 public class RegistrationController {
 
-    @Value("http://${auth.server.host:auth-server.local}:${auth.server.port:9000}")
-    private String authServerUrl;
+    @Value("${auth.server.host:auth-server}")
+    private String authServerHost;
+
+    @Value("${auth.server.port:9000}")
+    private String authServerPort;
 
     private final RestTemplate restTemplate;
 
     @Operation(description = "Proxy to auth-server for convenience")
     @PostMapping("/register")
     public ResponseEntity<Void> register(@Valid @RequestBody RegisterRequest request) {
-        restTemplate.postForEntity(authServerUrl + "/api/register", request, String.class);
+        String url = "http://" + authServerHost + ":" + authServerPort + "/api/register";
+
+        restTemplate.postForEntity(url, request, String.class);
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 }

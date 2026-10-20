@@ -27,14 +27,14 @@ public class NotificationService {
 
     public void createNotificationForPaymentProcessedEventAndSendToUser(TransferProcessedEvent event) {
 
-        boolean sentResult = sseEmitterStorageService.send(event.getUserPublicTd().toString(), event);
+        boolean sentResult = sseEmitterStorageService.send(event.getUserPublicId().toString(), event);
 
         NotificationStatus status = (sentResult) ? NotificationStatus.SENT : NotificationStatus.PENDING;
 
         Map<String, Object> payload = Map.of(
                 "transferPublicId", event.getTransferPublicId(),
                 "amount", event.getAmount(),
-                "userId", event.getUserPublicTd(),
+                "userId", event.getUserPublicId(),
                 "fromAccountPublicId", event.getFromAccountPublicId(),
                 "toAccountPublicId", event.getToAccountPublicId(),
                 "status", event.getStatus(),
@@ -43,7 +43,7 @@ public class NotificationService {
 
         Notification notification = Notification.builder()
                 .status(status)
-                .userId(event.getUserPublicTd())
+                .userId(event.getUserPublicId())
                 .eventType("TRANSFER_PROCESSED")
                 .createdAt(LocalDateTime.now())
                 .payload(payload)

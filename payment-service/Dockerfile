@@ -7,12 +7,12 @@ COPY gradle ./gradle
 COPY settings.gradle ./
 COPY build.gradle ./
 
-RUN --mount=type=cache,target=/root/.gradle \
+RUN --mount=type=cache,target=/root/.gradle,sharing=locked \
     ./gradlew dependencies --no-daemon
 
 COPY src ./src
 
-RUN --mount=type=cache,target=/root/.gradle \
+RUN --mount=type=cache,target=/root/.gradle,sharing=locked \
     ./gradlew bootJar --no-daemon
 
 

@@ -7,6 +7,7 @@ import by.egrius.payment_service.dto.response.ErrorResponse;
 import by.egrius.payment_service.dto.user.CurrentUserDto;
 import by.egrius.payment_service.service.AccountService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -68,7 +69,10 @@ public class AccountController {
             @ApiResponse(responseCode = "404", description = "Account not found or not owned by user", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     @GetMapping("/{public-account-id}")
-    public AccountReadDto getAccount(@PathVariable("public-account-id") UUID publicAccountId,
+    public AccountReadDto getAccount(
+            @Parameter(description = "Account public ID",
+                    example = "22222222-2222-2222-2222-222222222222")
+            @PathVariable("public-account-id") UUID publicAccountId,
                                      @CurrentUser CurrentUserDto currentUserDto) {
         return accountService.getAccountByPublicId(publicAccountId, currentUserDto.publicId());
     }

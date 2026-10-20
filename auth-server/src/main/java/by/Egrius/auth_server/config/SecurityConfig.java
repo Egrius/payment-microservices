@@ -132,7 +132,7 @@ public class SecurityConfig {
     @Order(2)
     public SecurityFilterChain webSecurityFilterChain(HttpSecurity http) throws Exception {
         http
-                .securityMatcher("/api/register")
+                .securityMatcher("/api/register", "/dev/**")
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
@@ -208,7 +208,7 @@ public class SecurityConfig {
         Define end-points for oauth2
      */
     @Bean
-    public AuthorizationServerSettings authorizationServerSettings( @Value("${AUTH_SERVER_ISSUER:http://auth-server.local:9000}") String issuerUri) {
+    public AuthorizationServerSettings authorizationServerSettings(@Value("${AUTH_SERVER_ISSUER:http://auth-server.local:9000}") String issuerUri) {
         return AuthorizationServerSettings.builder()
                 .issuer(issuerUri)
                 .build();
